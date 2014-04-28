@@ -9,8 +9,7 @@ top-level domain for the process.</p></div></div></div><div class="segment"><div
 <span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
 
-<span class="kd">var</span> <span class="nx">core</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-core&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">lastDitch</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
+<span class="kd">var</span> <span class="nx">core</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-core&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
 starts a worker process. Optional parameters:</p>
 
 <ul>
@@ -33,7 +32,7 @@ starts a worker process. Optional parameters:</p>
     <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Need to provide a worker callback!&#39;</span><span class="p">);</span>
   <span class="p">}</span>
 
-  <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">lastDitch</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span>
 
   <span class="k">this</span><span class="p">.</span><span class="nx">domain</span> <span class="o">=</span> <span class="nx">domain</span><span class="p">.</span><span class="nx">create</span><span class="p">();</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">domain</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">onError</span><span class="p">);</span>

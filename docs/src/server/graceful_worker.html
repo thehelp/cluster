@@ -4,10 +4,9 @@
 anything important, even active requests on an http server.</p></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><a href="http://mzl.la/1fRhnam">strict mode</a></p></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
 
 <span class="kd">var</span> <span class="nx">cluster</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;cluster&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
 
-<span class="kd">var</span> <span class="nx">lastDitch</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has no required parameters. Optional parameters:</p>
+<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has no required parameters. Optional parameters:</p>
 
 <ul>
 <li><code>pollInterval</code> - how often to attempt to take down process by first checking all
@@ -29,7 +28,7 @@ will not have been created it. Use <code>setServer()</code> instead.</li>
 
   <span class="k">this</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">||</span> <span class="mi">250</span><span class="p">;</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">timeout</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">||</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">;</span>
-  <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">lastDitch</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">setServer</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">server</span><span class="p">);</span>
 
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>

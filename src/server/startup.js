@@ -12,7 +12,6 @@ var _ = require('lodash');
 var winston = require('winston');
 
 var core = require('thehelp-core');
-var lastDitch = require('thehelp-last-ditch');
 
 /*
 The `constructor` requires only one parameter `worker`, a callback which
@@ -38,7 +37,7 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
-  this.messenger = options.messenger || lastDitch;
+  this.messenger = options.messenger || require('thehelp-last-ditch');
 
   this.domain = domain.create();
   this.domain.on('error', this.onError);

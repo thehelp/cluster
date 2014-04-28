@@ -6,10 +6,9 @@
 'use strict';
 
 var cluster = require('cluster');
+
 var _ = require('lodash');
 var winston = require('winston');
-
-var lastDitch = require('thehelp-last-ditch');
 
 /*
 The `constructor` has no required parameters. Optional parameters:
@@ -35,7 +34,7 @@ function GracefulWorker(options) {
 
   this.pollInterval = options.pollInterval || 250;
   this.timeout = options.pollInterval || 5 * 1000;
-  this.messenger = options.messenger || lastDitch;
+  this.messenger = options.messenger || require('thehelp-last-ditch');
   this.setServer(options.server);
 
   var _this = this;
