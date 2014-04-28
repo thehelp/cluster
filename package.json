@@ -1,0 +1,38 @@
+{
+  "name": "thehelp-cluster",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/server/index.js",
+  "dependencies": {
+    "lodash": "2.x",
+    "winston": "0.7.x"
+  },
+  "peerDependencies": {
+    "thehelp-core": "1.x",
+    "thehelp-last-ditch": "0.2.x",
+    "thehelp-messaging": "0.1.x"
+  },
+  "devDependencies": {
+    "blanket": "git+ssh://git@github.com:scottnonnenberg/blanket#v1.1.6",
+    "express": "4.1.1",
+    "grunt": "0.4.4",
+    "grunt-develop": "git+ssh://git@github.com:scottnonnenberg/grunt-develop#v0.3.1",
+    "supertest": "0.11.0",
+    "thehelp-core": "git+ssh://git@infra:thehelp-core#v1.4.0",
+    "thehelp-last-ditch": "git+ssh://git@infra:thehelp-last-ditch#v0.2.0",
+    "thehelp-messaging": "git+ssh://git@infra:thehelp-messaging#v0.1.2",
+    "thehelp-project": "git+ssh://git@infra:thehelp-project#v2.4.5",
+    "thehelp-test": "git+ssh://git@infra:thehelp-test#v2.0.6"
+  },
+  "scripts": {
+    "blanket": {
+      "data-cover-only": "src",
+      "data-cover-never": "['lib/','node_modules/','test/','src/client']"
+    }
+  },
+  "author": "Scott Nonnenberg",
+  "repository": {
+    "type": "git",
+    "url": "git@infra:thehelp-cluster"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "folders":
+  [
+    {
+      "file_exclude_patterns":
+      [
+        "*.sublime-workspace",
+        "*.log",
+        "*.rdb",
+        "result*.html"
+      ],
+      "folder_exclude_patterns":
+      [
+        "node_modules",
+        "bower_components",
+        "dist",
+        "docs",
+        "lib",
+        "public",
+        "tmp",
+        "temp",
+        "cache",
+        "data",
+        "logs"
+      ],
+      "path": "."
+    }
+  ],
+  "settings":
+  {
+    "gutter": true,
+    "highlight_line": true,
+    "show_minimap": false
+  }
+}

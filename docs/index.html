@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path">README.md</div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="thehelp-cluster">thehelp-cluster</h1>
+
+<p>This project is designed to make your node applications more reliable, using two base node technologies: <a href="http://nodejs.org/api/domain.html"><code>domain</code></a> and <a href="http://nodejs.org/api/cluster.html"><code>cluster</code></a>.</p>
+
+<p><code>domain</code> is used to ensure that the process doesn't immediately go down when an unhandled exception is thrown. The <code>DomainMiddleware</code> class captures the error, records it, and then starts the process of gracefully shutting down the process, ensuring that every in-progress request is completed.</p>
+
+<p><code>cluster</code> is used to manage multiple worker processes. The <code>Master</code> class creates the requested number of workers, restarting them as they crash, watching for worker processes crashing too quickly.</p>
+
+<p>'SIGTERM' is the signal interpreted as a request for graceful shutdown.</p>
+
+<h2 id="setup">Setup</h2>
+
+<p>There's just one optional environment variable:</p>
+
+<pre><code>"NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
+</code></pre>
+
+<p>By default, both <code>Startup</code> (for top-level exceptions) and <code>GracefulWorker</code> (for exceptions delivered by <code>DomainMiddleware</code>) use <code>thehelp-last-ditch</code> to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.</p>
+
+<p>Or you can use the classes a little more manually, and provide <code>messenger</code> callbacks of the form <code>function(err, options, cb)</code> on construction of both of these classes.</p>
+
+<h2 id="usage">Usage</h2>
+
+<p>Your worker processes should be set up like this to enable shutting down the server gracefully:</p>
+
+<pre><code>var cluster = require('thehelp-cluster');
+var gracefulWorker = new cluster.GracefulWorker();
+var domainMiddleware = new cluster.DomainMiddleware({
+  gracefulWorker: gracefulWorker
+});
+
+var app = express();
+// these two are installed before everything else
+app.use(domainMiddleware.middleware);
+app.use(gracefulWorker.middleware);
+
+// add more middleware, endpoints
+
+// create http server manually to make available to GracefulWorker
+var http = require('http');
+var server = http.createServer(app);
+gracefulWorker.setServer(server);
+
+// start server
+server.listen(PORT);
+</code></pre>
+
+<p>You start up the cluster like this:</p>
+
+<pre><code>var cluster = require('thehelp-cluster');
+
+cluster({
+  worker: function() {
+    require('./start_server');
+  }
+});
+</code></pre>
+
+<p>A top-level domain will be created both for master and worker processes. If you don't provide a <code>master</code> callback, an instance of the <code>Master</code> class will be created for your master process to manage your worker processes.</p>
+
+<h2 id="development">Development</h2>
+
+<p>Run unit and integration tests like this:</p>
+
+<pre><code>grunt test
+</code></pre>
+
+<p>You can manually play around with the test cluster by launching it manually</p>
+
+<pre><code>node test/start_cluster.js
+</code></pre>
+
+<p>In another terminal you can shut it down gracefully by sending it a 'SIGTERM' signal. But first you'll need to find the master process id (use <code>ps</code> on posix systems).</p>
+
+<pre><code>ps | grep node
+kill PID
+</code></pre>
+
+<p>Tests, static analysis, documentation generation and more are all run by default:</p>
+
+<pre><code>grunt
+</code></pre>
+
+<h2 id="history">History</h2>
+
+<h3 id="010">0.1.0</h3>
+
+<ul>
+<li>Functioning <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
+</ul>
+
+<h2 id="license">License</h2>
+
+<p>(The MIT License)</p>
+
+<p>Copyright (c) 2013 Scott Nonnenberg &lt;scott@nonnenberg.com&gt;</p>
+
+<p>Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:</p>
+
+<p>The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.</p>
+
+<p>THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p></div></div></div></div></body></html>

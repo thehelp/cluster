@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="en"><head><title>src/server/domain_middleware</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/server/domain_middleware"><meta name="groc-project-path" content="src/server/domain_middleware.js"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path">src/server/domain_middleware.js</div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="domainmiddleware">DomainMiddleware</h1>
+
+<p>Encapsulates the capture of unhandled errors encountered while attempting to service an
+incoming http request. Also tracks active requests to facilitate faster shutdown.</p></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">domain</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;domain&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has just one optional parameter, <code>gracefulWorker</code>. If set either on
+construction or later with <code>setGracefulWorker()</code>, <code>shutdown()</code> will be called with any
+unhandled error encountered.</p></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">DomainMiddleware</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">_</span><span class="p">.</span><span class="nx">bindAll</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+
+  <span class="nx">options</span> <span class="o">=</span> <span class="nx">options</span> <span class="o">||</span> <span class="p">{};</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">setGracefulWorker</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">DomainMiddleware</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setGracefulWorker</code> is a way to provide the reference after construction.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setGracefulWorker</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span> <span class="o">=</span> <span class="nx">gracefulWorker</span><span class="p">;</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">.</span><span class="nx">addCheck</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">===</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">});</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>middleware</code> should be added as a global middleware, before any handler that might stop
+the processing chain. It wires up a domain to capture any errors produced by the rest
+of that request's handlers.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">middleware</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+  <span class="kd">var</span> <span class="nx">d</span> <span class="o">=</span> <span class="nx">domain</span><span class="p">.</span><span class="nx">create</span><span class="p">();</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">onStart</span><span class="p">(</span><span class="nx">req</span><span class="p">);</span>
+
+  <span class="nx">d</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">req</span><span class="p">);</span>
+  <span class="nx">d</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+
+  <span class="c1">//&#39;finish&#39; is sent when request contents have been sent to OS for sending on socket</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;finish&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">onFinish</span><span class="p">(</span><span class="nx">req</span><span class="p">);</span>
+  <span class="p">});</span>
+  <span class="c1">//&#39;close&#39; is sent when server doesn&#39;t send a response to a request</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">onClose</span><span class="p">(</span><span class="nx">req</span><span class="p">);</span>
+  <span class="p">});</span>
+
+  <span class="nx">d</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">onError</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">);</span>
+  <span class="p">});</span>
+
+  <span class="nx">d</span><span class="p">.</span><span class="nx">run</span><span class="p">(</span><span class="nx">next</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>getActiveRequests</code> just returns the count of in-progress requests on the http server.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">getActiveRequests</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-functions">Helper functions</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onError</code> is the method called when a request domain catches an error. It</p>
+
+<ol>
+<li>logs the error with winston</li>
+<li>closes the http connection</li>
+<li>starts a graceful shutdown</li>
+<li>and passes the error to the registered express error handler</li>
+</ol></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">try</span> <span class="p">{</span>
+    <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Error handling &#39;</span> <span class="o">+</span> <span class="nx">req</span><span class="p">.</span><span class="nx">url</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">stack</span><span class="p">);</span>
+
+    <span class="nx">res</span><span class="p">.</span><span class="nx">setHeader</span><span class="p">(</span><span class="s1">&#39;Connection&#39;</span><span class="p">,</span> <span class="s1">&#39;Connection: close&#39;</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="nx">next</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="k">catch</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Error handling domain error for &#39;</span> <span class="o">+</span> <span class="nx">req</span><span class="p">.</span><span class="nx">url</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">stack</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onStart</code> increments the in-progress request count.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onStart</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onFinish</code> decrements the in-progress request count.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onFinish</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onClose</code> logs, because an incoming http request never got a response.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onClose</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">req</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Handler for &#39;</span> <span class="o">+</span> <span class="nx">req</span><span class="p">.</span><span class="nx">url</span> <span class="o">+</span> <span class="s1">&#39; never returned a response!&#39;</span><span class="p">);</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">onFinish</span><span class="p">();</span>
+<span class="p">};</span></div></div></div></div></body></html>
