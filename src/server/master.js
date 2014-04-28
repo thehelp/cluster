@@ -8,7 +8,6 @@
 
 var cluster = require('cluster');
 var os = require('os');
-var domain = require('domain');
 
 var winston = require('winston');
 var _ = require('lodash');
@@ -51,6 +50,8 @@ function Master(options) {
   this.process.on('exit', function(code) {
     winston.warn('Master about to exit with code:', code);
   });
+
+  Master.instance = this;
 }
 
 module.exports = Master;
@@ -69,16 +70,14 @@ Master.prototype.start = function() {
 Master.prototype.gracefulShutdown = function(err) {
   winston.warn('Gracefully shutting down master!');
 
-  // TODO: is there a way to get the current domain and error? thought there was
-  err = err || domain.error;
-
   this.stop();
+  var crashErr = err;
 
   setInterval(function() {
     if (!Object.keys(cluster.workers).length) {
       winston.info('All workers gone. exiting process!', function(err, level, msg, meta) {
         /*jshint unused: false */
-        var code = err ? err.code || 1 : 0;
+        var code = crashErr ? crashErr.code || 1 : 0;
         process.exit(code);
       });
 

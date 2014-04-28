@@ -9,13 +9,18 @@ top-level domain for the process.</p></div></div></div><div class="segment"><div
 <span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
 
-<span class="kd">var</span> <span class="nx">core</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-core&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
+<span class="kd">var</span> <span class="nx">core</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-core&#39;</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Master</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./master&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">GracefulWorker</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful_worker&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
 starts a worker process. Optional parameters:</p>
 
 <ul>
 <li><code>master</code> - a callback to start the cluster's master process</li>
 <li><code>messenger</code> -  a <code>function(err, options, cb)</code>, defaulting to
 <code>thehelp-last-ditch</code>. Passed any top-level exceptions encountered.</li>
+<li><code>errorHandler</code> - an alternate handler for a top-level error. Prevents <code>messenger</code> from
+being called, and prevents any kind of automatic graceful shutdown.</li>
 </ul></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">Startup</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
   <span class="nx">_</span><span class="p">.</span><span class="nx">bindAll</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
 
@@ -32,7 +37,11 @@ starts a worker process. Optional parameters:</p>
     <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Need to provide a worker callback!&#39;</span><span class="p">);</span>
   <span class="p">}</span>
 
-  <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">errorHandler</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">errorHandler</span><span class="p">;</span>
+  <span class="c1">//errorHandler supercedes messenger</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">errorHandler</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
 
   <span class="k">this</span><span class="p">.</span><span class="nx">domain</span> <span class="o">=</span> <span class="nx">domain</span><span class="p">.</span><span class="nx">create</span><span class="p">();</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">domain</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">onError</span><span class="p">);</span>
@@ -61,14 +70,29 @@ in the <code>logs</code> directory.</p></div></div><div class="code"><div class=
   <span class="p">);</span>
   <span class="nx">core</span><span class="p">.</span><span class="nx">logs</span><span class="p">.</span><span class="nx">setupConsole</span><span class="p">();</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onError</code> is called when the top-level domain is sent an error. Whenever this happens
-it's definitely something serious, so we log the error via winston, then send it via
-the <code>messenger</code> callback, and finally start the process of graceful shutdown by sending
-a <code>SIGTERM</code> signal. Both the <a href="./master.html"><code>Master</code></a> and
-<a href="./graceful_worker.html"><code>GracefulWorker</code></a> classes listen for this signal.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Startup</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+it's definitely something serious, so we log the error via winston, then send it via the
+<code>messenger</code> callback, and finally start the process of graceful shutdown.</p>
+
+<p>First we try to shutdown an active <a href="./master.html"><code>Master</code></a> instance. Then we try for
+a <a href="./graceful_worker.html"><code>GracefulWorker</code></a> instance. If we can find none of these, we
+send a generic 'SIGTERM' signal to the current process.</p>
+
+<p><code>errorHandler</code> can be specified for custom error-handling logic, superceding all <code>onError</code>
+behavior described above.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Startup</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">onError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">errorHandler</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">errorHandler</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+  <span class="p">}</span>
+
   <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Top-level error; shutting down: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">stack</span><span class="p">);</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="c1">//TODO: could kill gracefulShutdown on master</span>
-    <span class="c1">//TODO: if gracefulWorker was a singleton, could call shutdown directly</span>
-    <span class="nx">process</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">,</span> <span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span><span class="p">.</span><span class="nx">gracefulShutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">instance</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="p">{</span>
+      <span class="nx">process</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">,</span> <span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
   <span class="p">});</span>
 <span class="p">};</span></div></div></div></div></body></html>

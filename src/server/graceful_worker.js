@@ -61,6 +61,8 @@ function GracefulWorker(options) {
   this.process.on('exit', function(code) {
     winston.warn('Worker about to exit with code', code);
   });
+
+  GracefulWorker.instance = this;
 }
 
 module.exports = GracefulWorker;

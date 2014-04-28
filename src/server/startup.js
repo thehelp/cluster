@@ -13,6 +13,9 @@ var winston = require('winston');
 
 var core = require('thehelp-core');
 
+var Master = require('./master');
+var GracefulWorker = require('./graceful_worker');
+
 /*
 The `constructor` requires only one parameter `worker`, a callback which
 starts a worker process. Optional parameters:
@@ -20,6 +23,9 @@ starts a worker process. Optional parameters:
 + `master` - a callback to start the cluster's master process
 + `messenger` -  a `function(err, options, cb)`, defaulting to
 `thehelp-last-ditch`. Passed any top-level exceptions encountered.
++ `errorHandler` - an alternate handler for a top-level error. Prevents `messenger` from
+being called, and prevents any kind of automatic graceful shutdown.
+
 */
 function Startup(options) {
   _.bindAll(this);
@@ -37,7 +43,11 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
-  this.messenger = options.messenger || require('thehelp-last-ditch');
+  this.errorHandler = options.errorHandler;
+  //errorHandler supercedes messenger
+  if (!this.errorHandler) {
+    this.messenger = options.messenger || require('thehelp-last-ditch');
+  }
 
   this.domain = domain.create();
   this.domain.on('error', this.onError);
@@ -79,16 +89,33 @@ Startup.prototype.setupLogs = function() {
   core.logs.setupConsole();
 };
 
-// `onError` is called when the top-level domain is sent an error. Whenever this happens
-// it's definitely something serious, so we log the error via winston, then send it via
-// the `messenger` callback, and finally start the process of graceful shutdown by sending
-// a `SIGTERM` signal. Both the [`Master`](./master.html) and
-// [`GracefulWorker`](./graceful_worker.html) classes listen for this signal.
+/*
+`onError` is called when the top-level domain is sent an error. Whenever this happens
+it's definitely something serious, so we log the error via winston, then send it via the
+`messenger` callback, and finally start the process of graceful shutdown.
+
+First we try to shutdown an active [`Master`](./master.html) instance. Then we try for
+a [`GracefulWorker`](./graceful_worker.html) instance. If we can find none of these, we
+send a generic 'SIGTERM' signal to the current process.
+
+`errorHandler` can be specified for custom error-handling logic, superceding all `onError`
+behavior described above.
+*/
 Startup.prototype.onError = function(err) {
+  if (this.errorHandler) {
+    return this.errorHandler(err);
+  }
+
   winston.error('Top-level error; shutting down: ' + err.stack);
   this.messenger(err, null, function() {
-    //TODO: could kill gracefulShutdown on master
-    //TODO: if gracefulWorker was a singleton, could call shutdown directly
-    process.kill(process.pid, 'SIGTERM');
+    if (Master.instance) {
+      Master.instance.gracefulShutdown(err);
+    }
+    else if (GracefulWorker.instance) {
+      GracefulWorker.instance.shutdown(err);
+    }
+    else {
+      process.kill(process.pid, 'SIGTERM');
+    }
   });
 };
