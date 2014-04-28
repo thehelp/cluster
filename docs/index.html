@@ -86,7 +86,9 @@ kill PID
 <h3 id="010">0.1.0</h3>
 
 <ul>
-<li>Functioning <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
+<li>Easy startup of cluster application with root <code>startup</code> method</li>
+<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
+<li>Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors</li>
 </ul>
 
 <h2 id="license">License</h2>

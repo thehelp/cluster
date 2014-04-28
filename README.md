@@ -92,7 +92,9 @@ grunt
 
 ### 0.1.0
 
-* Functioning `Master`, `Startup`, `GracefulWorker` and `DomainMiddleware` classes
+* Easy startup of cluster application with root `startup` method
+* Fully functional `Master`, `Startup`, `GracefulWorker` and `DomainMiddleware` classes
+* Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors
 
 ## License
 
