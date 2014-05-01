@@ -109,7 +109,9 @@ DomainMiddleware.prototype.onFinish = function() {
 
 // `onClose` logs, because an incoming http request never got a response.
 DomainMiddleware.prototype.onClose = function(req) {
-  winston.error('Handler for ' + req.url + ' never returned a response!');
+  winston.warn(
+    req.url + ': response incomplete - was either interrupted or never started.'
+  );
   this.onFinish();
 };
 
