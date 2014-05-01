@@ -27,8 +27,8 @@ describe('thehelp-cluster', function() {
     setTimeout(done, 1000);
   });
 
-  after(function() {
-    master.stop();
+  after(function(done) {
+    master.stop(done);
   });
 
   it('root returns', function(done) {

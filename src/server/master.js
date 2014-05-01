@@ -67,25 +67,16 @@ Master.prototype.start = function() {
 
 // `gracefulShutdown` uses `stop` to kill all workers, then shuts down this process as
 // soon as no more workers are alive.
-Master.prototype.gracefulShutdown = function(err) {
+Master.prototype.gracefulShutdown = function(crashErr) {
   winston.warn('Gracefully shutting down master!');
 
-  this.stop();
-  var crashErr = err;
-
-  setInterval(function() {
-    if (!Object.keys(cluster.workers).length) {
-      winston.info('All workers gone. exiting process!', function(err, level, msg, meta) {
-        /*jshint unused: false */
-        var code = crashErr ? crashErr.code || 1 : 0;
-        process.exit(code);
-      });
-
-    }
-    else {
-      winston.info('Still some workers alive...');
-    }
-  }, this.pollInterval);
+  this.stop(function() {
+    winston.info('Exiting process!', function(err, level, msg, meta) {
+      /*jshint unused: false */
+      var code = crashErr ? crashErr.code || 1 : 0;
+      process.exit(code);
+    });
+  });
 };
 
 // Helper functions
@@ -93,7 +84,7 @@ Master.prototype.gracefulShutdown = function(err) {
 
 // `stop` kills all worker processes, first using a 'SIGTERM' signal to allow for graceful
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
-Master.prototype.stop = function() {
+Master.prototype.stop = function(cb) {
   var _this = this;
   winston.warn('Stopping all workers');
 
@@ -109,6 +100,18 @@ Master.prototype.stop = function() {
       }
     }, _this.killTimeout);
   });
+
+  var interval = setInterval(function() {
+    if (!Object.keys(cluster.workers).length) {
+      clearInterval(interval);
+      winston.info('All workers gone.');
+      return cb();
+    }
+    else {
+      winston.info('Still some workers alive...');
+    }
+  }, this.pollInterval);
+
 };
 
 // `startWorker` does a basic `cluster.fork()`, saving the result and the current time to
