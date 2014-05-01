@@ -17,7 +17,7 @@
     "express": "4.1.1",
     "grunt": "0.4.4",
     "grunt-develop": "git+ssh://git@github.com:scottnonnenberg/grunt-develop#v0.3.1",
-    "supertest": "0.11.0",
+    "supertest": "0.12.0",
     "thehelp-core": "git+ssh://git@infra:thehelp-core#v1.4.0",
     "thehelp-last-ditch": "git+ssh://git@infra:thehelp-last-ditch#v0.2.0",
     "thehelp-messaging": "git+ssh://git@infra:thehelp-messaging#v0.1.2",
