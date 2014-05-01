@@ -124,7 +124,7 @@ Master.prototype.startWorker = function() {
 };
 
 // `restartWorker` first eliminates the dead worker from `this.workers`, then either
-// starst a new worker immediately, or after a delay of `this.delayStart` if the process
+// starts a new worker immediately, or after a delay of `this.delayStart` if the process
 // wasn't alive for longer than `this.spinTimeout`.
 Master.prototype.restartWorker = function(worker) {
   var _this = this;
