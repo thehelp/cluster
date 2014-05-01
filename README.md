@@ -90,10 +90,17 @@ grunt
 
 ## History
 
-### 0.1.0
+### 0.1.1 (2014-05-01)
+
+* `Master.stop()` now takes a callback
+* `DomainMiddlware` now logs a warning instead of an error when it gets a `res.on('close')` event
+* Dev dependency upgrade: supertest
+
+### 0.1.0 (2014-04-28)
 
 * Easy startup of cluster application with root `startup` method
 * Fully functional `Master`, `Startup`, `GracefulWorker` and `DomainMiddleware` classes
+*
 * Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors
 
 ## License

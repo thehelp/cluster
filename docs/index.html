@@ -83,11 +83,20 @@ kill PID
 
 <h2 id="history">History</h2>
 
-<h3 id="010">0.1.0</h3>
+<h3 id="011-2014-05-01">0.1.1 (2014-05-01)</h3>
+
+<ul>
+<li><code>Master.stop()</code> now takes a callback</li>
+<li><code>DomainMiddlware</code> now logs a warning instead of an error when it gets a <code>res.on('close')</code> event</li>
+<li>Dev dependency upgrade: supertest</li>
+</ul>
+
+<h3 id="010-2014-04-28">0.1.0 (2014-04-28)</h3>
 
 <ul>
 <li>Easy startup of cluster application with root <code>startup</code> method</li>
-<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
+<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes
+*</li>
 <li>Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors</li>
 </ul>
 
