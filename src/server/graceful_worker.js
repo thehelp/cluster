@@ -75,7 +75,7 @@ GracefulWorker.prototype.setServer = function(server) {
     this.server = server;
 
     this.server.on('close', function() {
-      winston.info('No more active sockets! Starting shutdown process...');
+      winston.info('No more active sockets!');
       _this.exit();
     });
   }

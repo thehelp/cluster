@@ -66,7 +66,7 @@ will not have been created it. Use <code>setServer()</code> instead.</li>
     <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="nx">server</span><span class="p">;</span>
 
     <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;No more active sockets! Starting shutdown process...&#39;</span><span class="p">);</span>
+      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;No more active sockets!&#39;</span><span class="p">);</span>
       <span class="nx">_this</span><span class="p">.</span><span class="nx">exit</span><span class="p">();</span>
     <span class="p">});</span>
   <span class="p">}</span>
