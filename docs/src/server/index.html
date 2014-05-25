@@ -3,7 +3,7 @@
 <p>Pulls in everything needed for use via npm.</p></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
 
 <span class="kd">var</span> <span class="nx">Master</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./master&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">GracefulWorker</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful_worker&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">Graceful</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">Startup</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./startup&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">DomainMiddleware</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./domain_middleware&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The root object returned via <code>require()</code> is this function - creates and starts a
 <code>Startup</code> object.</p></div></div><div class="code"><div class="wrapper"><span class="kd">var</span> <span class="nx">start</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
@@ -11,7 +11,7 @@
   <span class="nx">startup</span><span class="p">.</span><span class="nx">setupLogs</span><span class="p">();</span>
   <span class="nx">startup</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The four main classes are available as keys on that main function.</p></div></div><div class="code"><div class="wrapper"><span class="nx">start</span><span class="p">.</span><span class="nx">Master</span> <span class="o">=</span> <span class="nx">Master</span><span class="p">;</span>
-<span class="nx">start</span><span class="p">.</span><span class="nx">GracefulWorker</span> <span class="o">=</span> <span class="nx">GracefulWorker</span><span class="p">;</span>
+<span class="nx">start</span><span class="p">.</span><span class="nx">Graceful</span> <span class="o">=</span> <span class="nx">Graceful</span><span class="p">;</span>
 <span class="nx">start</span><span class="p">.</span><span class="nx">Startup</span> <span class="o">=</span> <span class="nx">Startup</span><span class="p">;</span>
 <span class="nx">start</span><span class="p">.</span><span class="nx">DomainMiddleware</span> <span class="o">=</span> <span class="nx">DomainMiddleware</span><span class="p">;</span>
 

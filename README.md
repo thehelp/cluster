@@ -16,7 +16,7 @@ There's just one optional environment variable:
 "NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
 ```
 
-By default, both `Startup` (for top-level exceptions) and `GracefulWorker` (for exceptions delivered by `DomainMiddleware`) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
+By default, both `Startup` (for top-level exceptions) and `Graceful` (for exceptions delivered by a `shutdown()` call) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
 
 Or you can use the classes a little more manually, and provide `messenger` callbacks of the form `function(err, options, cb)` on construction of both of these classes.
 
@@ -26,22 +26,21 @@ Your worker processes should be set up like this to enable shutting down the ser
 
 ```
 var cluster = require('thehelp-cluster');
-var gracefulWorker = new cluster.GracefulWorker();
+var graceful = new cluster.Graceful();
 var domainMiddleware = new cluster.DomainMiddleware({
-  gracefulWorker: gracefulWorker
+  graceful: graceful
 });
 
 var app = express();
-// these two are installed before everything else
+// this should be installed before any of your processing
 app.use(domainMiddleware.middleware);
-app.use(gracefulWorker.middleware);
 
 // add more middleware, endpoints
 
-// create http server manually to make available to GracefulWorker
+// create http server manually to make available to DomainMiddleware
 var http = require('http');
 var server = http.createServer(app);
-gracefulWorker.setServer(server);
+domainMiddleware.setServer(server);
 
 // start server
 server.listen(PORT);
@@ -69,7 +68,7 @@ Run unit and integration tests like this:
 grunt test
 ```
 
-You can manually play around with the test cluster by launching it manually
+You can manually play around with the test cluster by launching it yourself:
 
 ```
 node test/start_cluster.js
@@ -100,7 +99,6 @@ grunt
 
 * Easy startup of cluster application with root `startup` method
 * Fully functional `Master`, `Startup`, `GracefulWorker` and `DomainMiddleware` classes
-*
 * Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors
 
 ## License

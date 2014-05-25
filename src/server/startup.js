@@ -12,9 +12,7 @@ var _ = require('lodash');
 var winston = require('winston');
 
 var core = require('thehelp-core');
-
-var Master = require('./master');
-var GracefulWorker = require('./graceful_worker');
+var Graceful = require('./graceful');
 
 /*
 The `constructor` requires only one parameter `worker`, a callback which
@@ -34,7 +32,9 @@ function Startup(options) {
 
   this.master = options.master || function() {
     var Master = require('./master');
-    var master = new Master();
+    var master = new Master({
+      graceful: new Graceful()
+    });
     master.start();
   };
 
@@ -95,7 +95,7 @@ it's definitely something serious, so we log the error via winston, then send it
 `messenger` callback, and finally start the process of graceful shutdown.
 
 First we try to shutdown an active [`Master`](./master.html) instance. Then we try for
-a [`GracefulWorker`](./graceful_worker.html) instance. If we can find none of these, we
+a [`Graceful`](./graceful.html) instance. If we can find none of these, we
 send a generic 'SIGTERM' signal to the current process.
 
 `errorHandler` can be specified for custom error-handling logic, superceding all `onError`
@@ -107,15 +107,11 @@ Startup.prototype.onError = function(err) {
   }
 
   winston.error('Top-level error; shutting down: ' + err.stack);
+  if (Graceful.instance) {
+    return Graceful.instance.shutdown(err);
+  }
+
   this.messenger(err, null, function() {
-    if (Master.instance) {
-      Master.instance.gracefulShutdown(err);
-    }
-    else if (GracefulWorker.instance) {
-      GracefulWorker.instance.shutdown(err);
-    }
-    else {
-      process.kill(process.pid, 'SIGTERM');
-    }
+    process.kill(process.pid, 'SIGTERM');
   });
 };

@@ -39,17 +39,17 @@ function Master(options) {
   this.numberWorkers = options.numberWorkers || parseInt(process.env.NUMBER_WORKERS) || 0;
 
   this.workers = {};
-  this.shutdown = false;
+  this.closed = false;
 
   this.cluster = options.cluster || cluster;
   this.cluster.on('disconnect', this.restartWorker);
 
   this.process = options.process || process;
-  this.process.on('SIGTERM', this.gracefulShutdown);
-
   this.process.on('exit', function(code) {
     winston.warn('Master about to exit with code:', code);
   });
+
+  this.setGraceful(options.graceful);
 
   Master.instance = this;
 }
@@ -67,16 +67,32 @@ Master.prototype.start = function() {
 
 // `gracefulShutdown` uses `stop` to kill all workers, then shuts down this process as
 // soon as no more workers are alive.
-Master.prototype.gracefulShutdown = function(crashErr) {
+Master.prototype.shutdown = function() {
+  var _this = this;
+
   winston.warn('Gracefully shutting down master!');
 
+  this.workersActive = true;
   this.stop(function() {
-    winston.info('Exiting process!', function(err, level, msg, meta) {
-      /*jshint unused: false */
-      var code = crashErr ? crashErr.code || 1 : 0;
-      process.exit(code);
-    });
+    _this.workersActive = false;
   });
+};
+
+// `setGraceful` is a way to provide the reference after construction.
+Master.prototype.setGraceful = function(graceful) {
+  var _this = this;
+
+  if (graceful) {
+    this.graceful = graceful;
+
+    this.graceful.on('shutdown', function() {
+      _this.shutdown();
+    });
+
+    this.graceful.addCheck(function() {
+      return !_this.workersActive;
+    });
+  }
 };
 
 // Helper functions
@@ -88,7 +104,7 @@ Master.prototype.stop = function(cb) {
   var _this = this;
   winston.warn('Stopping all workers');
 
-  this.shutdown = true;
+  this.closed = true;
 
   _(cluster.workers).values().forEach(function(worker) {
     var pid = worker.process.pid;
@@ -136,7 +152,7 @@ Master.prototype.restartWorker = function(worker) {
   var data = this.workers[pid];
   delete this.workers[pid];
 
-  if (!this.shutdown) {
+  if (!this.closed) {
     var now = new Date();
     var start = data ? data.start : now;
     var delta = now.getTime() - start.getTime();

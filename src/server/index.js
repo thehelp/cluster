@@ -5,7 +5,7 @@
 'use strict';
 
 var Master = require('./master');
-var GracefulWorker = require('./graceful_worker');
+var Graceful = require('./graceful');
 var Startup = require('./startup');
 var DomainMiddleware = require('./domain_middleware');
 
@@ -19,7 +19,7 @@ var start = function(options) {
 
 // The four main classes are available as keys on that main function.
 start.Master = Master;
-start.GracefulWorker = GracefulWorker;
+start.Graceful = Graceful;
 start.Startup = Startup;
 start.DomainMiddleware = DomainMiddleware;
 

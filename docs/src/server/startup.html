@@ -10,9 +10,7 @@ top-level domain for the process.</p></div></div></div><div class="segment"><div
 <span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
 
 <span class="kd">var</span> <span class="nx">core</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-core&#39;</span><span class="p">);</span>
-
-<span class="kd">var</span> <span class="nx">Master</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./master&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">GracefulWorker</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful_worker&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
+<span class="kd">var</span> <span class="nx">Graceful</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> requires only one parameter <code>worker</code>, a callback which
 starts a worker process. Optional parameters:</p>
 
 <ul>
@@ -28,7 +26,9 @@ being called, and prevents any kind of automatic graceful shutdown.</li>
 
   <span class="k">this</span><span class="p">.</span><span class="nx">master</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">master</span> <span class="o">||</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
     <span class="kd">var</span> <span class="nx">Master</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./master&#39;</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">master</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Master</span><span class="p">();</span>
+    <span class="kd">var</span> <span class="nx">master</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Master</span><span class="p">({</span>
+      <span class="nx">graceful</span><span class="o">:</span> <span class="k">new</span> <span class="nx">Graceful</span><span class="p">()</span>
+    <span class="p">});</span>
     <span class="nx">master</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
   <span class="p">};</span>
 
@@ -74,7 +74,7 @@ it's definitely something serious, so we log the error via winston, then send it
 <code>messenger</code> callback, and finally start the process of graceful shutdown.</p>
 
 <p>First we try to shutdown an active <a href="./master.html"><code>Master</code></a> instance. Then we try for
-a <a href="./graceful_worker.html"><code>GracefulWorker</code></a> instance. If we can find none of these, we
+a <a href="./graceful.html"><code>Graceful</code></a> instance. If we can find none of these, we
 send a generic 'SIGTERM' signal to the current process.</p>
 
 <p><code>errorHandler</code> can be specified for custom error-handling logic, superceding all <code>onError</code>
@@ -84,15 +84,11 @@ behavior described above.</p></div></div><div class="code"><div class="wrapper">
   <span class="p">}</span>
 
   <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Top-level error; shutting down: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">stack</span><span class="p">);</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">Graceful</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">Graceful</span><span class="p">.</span><span class="nx">instance</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+  <span class="p">}</span>
+
   <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
-      <span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span><span class="p">.</span><span class="nx">gracefulShutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
-      <span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">instance</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">else</span> <span class="p">{</span>
-      <span class="nx">process</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">,</span> <span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
-    <span class="p">}</span>
+    <span class="nx">process</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">,</span> <span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
   <span class="p">});</span>
 <span class="p">};</span></div></div></div></div></body></html>

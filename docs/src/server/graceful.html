@@ -1,9 +1,11 @@
-<!DOCTYPE html><html lang="en"><head><title>src/server/graceful_worker</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/server/graceful_worker"><meta name="groc-project-path" content="src/server/graceful_worker.js"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path">src/server/graceful_worker.js</div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="gracefulworker">GracefulWorker</h1>
+<!DOCTYPE html><html lang="en"><head><title>src/server/graceful</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/server/graceful"><meta name="groc-project-path" content="src/server/graceful.js"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path">src/server/graceful.js</div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="graceful">Graceful</h1>
 
 <p>Encapsulates everything needed to shut down a worker process without interrupting
 anything important, even active requests on an http server.</p></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><a href="http://mzl.la/1fRhnam">strict mode</a></p></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
 
 <span class="kd">var</span> <span class="nx">cluster</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;cluster&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">EventEmitter</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">).</span><span class="nx">EventEmitter</span><span class="p">;</span>
+<span class="kd">var</span> <span class="nx">util</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;util&#39;</span><span class="p">);</span>
 
 <span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has no required parameters. Optional parameters:</p>
@@ -18,8 +20,8 @@ process down forcefully</li>
 <li><code>server</code> - the http server to be shut down. Usually not provided on construction because
 <code>this.middleware</code> should be installed as a global express handler, and the http server
 will not have been created it. Use <code>setServer()</code> instead.</li>
-</ul></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">GracefulWorker</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
-  <span class="cm">/*jshint maxcomplexity: 8 */</span>
+</ul></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">Graceful</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+  <span class="cm">/*jshint maxcomplexity: 9 */</span>
 
   <span class="nx">options</span> <span class="o">=</span> <span class="nx">options</span> <span class="o">||</span> <span class="p">{};</span>
 
@@ -29,7 +31,6 @@ will not have been created it. Use <code>setServer()</code> instead.</li>
   <span class="k">this</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">||</span> <span class="mi">250</span><span class="p">;</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">timeout</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">||</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">;</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">messenger</span> <span class="o">||</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-last-ditch&#39;</span><span class="p">);</span>
-  <span class="k">this</span><span class="p">.</span><span class="nx">setServer</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">server</span><span class="p">);</span>
 
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">sending</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
@@ -37,72 +38,59 @@ will not have been created it. Use <code>setServer()</code> instead.</li>
     <span class="k">return</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">sending</span> <span class="o">===</span> <span class="kc">false</span><span class="p">;</span>
   <span class="p">});</span>
 
+  <span class="k">this</span><span class="p">.</span><span class="nx">process</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">process</span> <span class="o">||</span> <span class="nx">process</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">();</span>
+  <span class="p">});</span>
+
   <span class="k">this</span><span class="p">.</span><span class="nx">cluster</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">cluster</span> <span class="o">||</span> <span class="nx">cluster</span><span class="p">;</span>
   <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">cluster</span><span class="p">.</span><span class="nx">worker</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">this</span><span class="p">.</span><span class="nx">cluster</span><span class="p">.</span><span class="nx">worker</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;disconnect&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
       <span class="nx">_this</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">();</span>
     <span class="p">});</span>
-  <span class="p">}</span>
-  <span class="k">else</span> <span class="p">{</span>
-    <span class="nx">winston</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Not started in the context of a cluster. On errors, will shut down &#39;</span> <span class="o">+</span>
-      <span class="s1">&#39;with no replacement.&#39;</span><span class="p">);</span>
-  <span class="p">}</span>
 
-  <span class="k">this</span><span class="p">.</span><span class="nx">process</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">process</span> <span class="o">||</span> <span class="nx">process</span><span class="p">;</span>
-  <span class="k">this</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="nx">_this</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">();</span>
-  <span class="p">});</span>
-  <span class="k">this</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">code</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nx">winston</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Worker about to exit with code&#39;</span><span class="p">,</span> <span class="nx">code</span><span class="p">);</span>
-  <span class="p">});</span>
-
-  <span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">instance</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">GracefulWorker</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setServer</code> is the more common way to supply an http server to this class.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setServer</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
-  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
-
-  <span class="k">if</span> <span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="nx">server</span><span class="p">;</span>
-
-    <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;No more active sockets!&#39;</span><span class="p">);</span>
-      <span class="nx">_this</span><span class="p">.</span><span class="nx">exit</span><span class="p">();</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">code</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">winston</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Worker about to exit with code&#39;</span><span class="p">,</span> <span class="nx">code</span><span class="p">);</span>
     <span class="p">});</span>
   <span class="p">}</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>shutdown</code> is the key method for interacting with this class. When something goes
+
+  <span class="nx">Graceful</span><span class="p">.</span><span class="nx">instance</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nx">util</span><span class="p">.</span><span class="nx">inherits</span><span class="p">(</span><span class="nx">Graceful</span><span class="p">,</span> <span class="nx">EventEmitter</span><span class="p">);</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">Graceful</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>shutdown</code> is the key method for interacting with this class. When something goes
 wrong, call this method with the error and any additional information (like the <code>url</code>
 being serviced). The http server will be stopped, the error will be saved/sent via
 <code>this.messenger</code> and we'll start the process of checking to see if we can take down the
-process via <code>this.exit()</code>.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">shutdown</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">info</span><span class="p">)</span> <span class="p">{</span>
+process via <code>this.exit()</code>.</p>
+
+<p>Note: to be notified when this method is called, register for the 'shutdown' event:</p>
+
+<pre><code>graceful.on('shutdown', function() {
+  // do stuff to prepare for shutdown
+})
+</code></pre></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">shutdown</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">info</span><span class="p">)</span> <span class="p">{</span>
   <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">closed</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">this</span><span class="p">.</span><span class="nx">closed</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
     <span class="k">this</span><span class="p">.</span><span class="nx">error</span> <span class="o">=</span> <span class="nx">err</span><span class="p">;</span>
 
     <span class="nx">winston</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Gracefully shutting down!&#39;</span><span class="p">);</span>
-    <span class="k">this</span><span class="p">.</span><span class="nx">stopServer</span><span class="p">();</span>
     <span class="k">this</span><span class="p">.</span><span class="nx">sendError</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">info</span><span class="p">);</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="s1">&#39;shutdown&#39;</span><span class="p">);</span>
     <span class="k">this</span><span class="p">.</span><span class="nx">exit</span><span class="p">();</span>
   <span class="p">}</span>
   <span class="k">else</span> <span class="p">{</span>
     <span class="nx">winston</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Already in the process of shutting down&#39;</span><span class="p">);</span>
   <span class="p">}</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>middleware</code> should be installed as a global middleware, before anything that might end
-a request, so that it can close keepalive connections when we're trying to shut down
-the server.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">middleware</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
-  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">closed</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nx">res</span><span class="p">.</span><span class="nx">setHeader</span><span class="p">(</span><span class="s1">&#39;Connection&#39;</span><span class="p">,</span> <span class="s1">&#39;Connection: close&#39;</span><span class="p">);</span>
-  <span class="p">}</span>
-
-  <span class="nx">next</span><span class="p">();</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>addCheck</code> allows you to provide a callback you can use to delay <code>process.exit()</code> until
-you are finished doing something.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">addCheck</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">check</span><span class="p">)</span> <span class="p">{</span>
+you are finished doing something.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">addCheck</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">check</span><span class="p">)</span> <span class="p">{</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">checks</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">check</span><span class="p">);</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>hasShutdown</code> tells you if a shutdown is in-process.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">hasShutdown</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>hasShutdown</code> tells you if a shutdown is in-process.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">hasShutdown</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
   <span class="k">return</span> <span class="nx">closed</span><span class="p">;</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-methods">Helper methods</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>sendError</code> uses <code>this.messenger</code> to save/send the error provided to <code>shutdown()</code>. It
 it sets <code>this.sending</code> to <code>true</code> so we won't take the process down before the call is
-complete.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">sendError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">info</span><span class="p">)</span> <span class="p">{</span>
+complete.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">sendError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">info</span><span class="p">)</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
 
   <span class="k">if</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
@@ -112,18 +100,7 @@ complete.</p></div></div><div class="code"><div class="wrapper"><span class="nx"
       <span class="nx">_this</span><span class="p">.</span><span class="nx">sending</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
     <span class="p">});</span>
   <span class="p">}</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>stopServer</code> tells the http server to stop accepting new connections. Unfortunately,
-this isn't enough, as it will continue to service new requests made on already-existing
-keepalive connections.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">stopServer</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">try</span> <span class="p">{</span>
-      <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
-    <span class="p">}</span>
-    <span class="k">catch</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
-      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;Couldn\&#39;t close server: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="p">);</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>check</code> returns true if all check methods returned true.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">check</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>check</code> returns true if all check methods returned true.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">check</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
   <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">checks</span> <span class="o">||</span> <span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">checks</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
   <span class="p">}</span>
@@ -132,7 +109,7 @@ keepalive connections.</p></div></div><div class="code"><div class="wrapper"><sp
   <span class="p">});</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>exit</code> exits if <code>check()</code> returns true. Otherwise it sets an interval to continue
 trying. It also sets a timer - if we never get a successful <code>check()</code> call, we
-take down the process anyway.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">exit</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+take down the process anyway.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">exit</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
 
   <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;Calling all provided pre-exit check functions...&#39;</span><span class="p">);</span>
@@ -161,7 +138,7 @@ that the log is complete.</p>
 
 <p>Unfortunately, because sometimes winston gets a bit messed up after unhandled exceptions,
 we also set a timer to make sure to take process down even if winston doesn't call the
-callback.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">finalLog</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">message</span><span class="p">)</span> <span class="p">{</span>
+callback.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">finalLog</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">message</span><span class="p">)</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
 
   <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="nx">message</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">level</span><span class="p">,</span> <span class="nx">msg</span><span class="p">,</span> <span class="nx">meta</span><span class="p">)</span> <span class="p">{</span>
@@ -173,7 +150,7 @@ callback.</p></div></div><div class="code"><div class="wrapper"><span class="nx"
     <span class="nx">_this</span><span class="p">.</span><span class="nx">die</span><span class="p">();</span>
   <span class="p">},</span> <span class="mi">1000</span><span class="p">);</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>die</code> calls <code>process.exit()</code> with the right error code based on <code>this.error</code> (set in
-<code>shutdown()</code>).</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulWorker</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">die</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+<code>shutdown()</code>).</p></div></div><div class="code"><div class="wrapper"><span class="nx">Graceful</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">die</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">code</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">error</span> <span class="o">?</span> <span class="k">this</span><span class="p">.</span><span class="nx">error</span><span class="p">.</span><span class="nx">code</span> <span class="o">||</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>
   <span class="nx">process</span><span class="p">.</span><span class="nx">exit</span><span class="p">(</span><span class="nx">code</span><span class="p">);</span>
 <span class="p">};</span></div></div></div></div></body></html>

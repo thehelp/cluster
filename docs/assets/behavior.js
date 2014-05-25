@@ -130,6 +130,14 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
               "type": "heading",
               "data": {
                 "level": 3,
+                "title": "0.2.0 (2014-05-25)",
+                "slug": "020-2014-05-25"
+              },
+              "depth": 3
+            }, {
+              "type": "heading",
+              "data": {
+                "level": 3,
                 "title": "0.1.1 (2014-05-01)",
                 "slug": "011-2014-05-01"
               },
@@ -252,21 +260,21 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
                   "foldPrefix": "^",
                   "name": "JavaScript"
                 },
-                "sourcePath": "/Users/scottnonnenberg/Development/thehelp/thehelp-cluster/src/server/graceful_worker.js",
-                "projectPath": "src/server/graceful_worker.js",
-                "targetPath": "src/server/graceful_worker",
-                "pageTitle": "src/server/graceful_worker",
+                "sourcePath": "/Users/scottnonnenberg/Development/thehelp/thehelp-cluster/src/server/graceful.js",
+                "projectPath": "src/server/graceful.js",
+                "targetPath": "src/server/graceful",
+                "pageTitle": "src/server/graceful",
                 "firstHeader": {
                   "type": "heading",
                   "data": {
                     "level": 1,
-                    "title": "GracefulWorker",
-                    "slug": "gracefulworker",
+                    "title": "Graceful",
+                    "slug": "graceful",
                     "isFileHeader": true
                   },
                   "depth": 1
                 },
-                "title": "GracefulWorker"
+                "title": "Graceful"
               },
               "depth": 3,
               "outline": [

@@ -10,14 +10,13 @@ var winston = require('winston');
 var express = require('express');
 var cluster = require('../src/server/index');
 
-var gracefulWorker = new cluster.GracefulWorker();
+var graceful = new cluster.Graceful();
 var domainMiddleware = new cluster.DomainMiddleware({
-  gracefulWorker: gracefulWorker
+  graceful: graceful
 });
 
 var app = express();
 app.use(domainMiddleware.middleware);
-app.use(gracefulWorker.middleware);
 
 app.get('/', function(req, res) {
   res.send('success');
@@ -57,6 +56,6 @@ app.use(function(err, req, res, next) {
 });
 
 var server = http.createServer(app);
-gracefulWorker.setServer(server);
+domainMiddleware.setServer(server);
 server.listen(3000);
 winston.warn('Worker listening on port 3000');

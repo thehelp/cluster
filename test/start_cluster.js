@@ -7,7 +7,9 @@ var cluster = require('../src/server/index');
 
 cluster({
   master: function() {
-    var master = new cluster.Master();
+    var master = new cluster.Master({
+      graceful: new cluster.Graceful()
+    });
     master.start();
 
     // setTimeout(function() {

@@ -15,7 +15,7 @@
 <pre><code>"NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
 </code></pre>
 
-<p>By default, both <code>Startup</code> (for top-level exceptions) and <code>GracefulWorker</code> (for exceptions delivered by <code>DomainMiddleware</code>) use <code>thehelp-last-ditch</code> to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.</p>
+<p>By default, both <code>Startup</code> (for top-level exceptions) and <code>Graceful</code> (for exceptions delivered by a <code>shutdown()</code> call) use <code>thehelp-last-ditch</code> to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.</p>
 
 <p>Or you can use the classes a little more manually, and provide <code>messenger</code> callbacks of the form <code>function(err, options, cb)</code> on construction of both of these classes.</p>
 
@@ -24,22 +24,21 @@
 <p>Your worker processes should be set up like this to enable shutting down the server gracefully:</p>
 
 <pre><code>var cluster = require('thehelp-cluster');
-var gracefulWorker = new cluster.GracefulWorker();
+var graceful = new cluster.Graceful();
 var domainMiddleware = new cluster.DomainMiddleware({
-  gracefulWorker: gracefulWorker
+  graceful: graceful
 });
 
 var app = express();
-// these two are installed before everything else
+// this should be installed before any of your processing
 app.use(domainMiddleware.middleware);
-app.use(gracefulWorker.middleware);
 
 // add more middleware, endpoints
 
-// create http server manually to make available to GracefulWorker
+// create http server manually to make available to DomainMiddleware
 var http = require('http');
 var server = http.createServer(app);
-gracefulWorker.setServer(server);
+domainMiddleware.setServer(server);
 
 // start server
 server.listen(PORT);
@@ -65,7 +64,7 @@ cluster({
 <pre><code>grunt test
 </code></pre>
 
-<p>You can manually play around with the test cluster by launching it manually</p>
+<p>You can manually play around with the test cluster by launching it yourself:</p>
 
 <pre><code>node test/start_cluster.js
 </code></pre>
@@ -95,8 +94,7 @@ kill PID
 
 <ul>
 <li>Easy startup of cluster application with root <code>startup</code> method</li>
-<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes
-*</li>
+<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
 <li>Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors</li>
 </ul>
 

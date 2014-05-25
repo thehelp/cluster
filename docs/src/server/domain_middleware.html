@@ -5,26 +5,59 @@ incoming http request. Also tracks active requests to facilitate faster shutdown
 
 <span class="kd">var</span> <span class="nx">domain</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;domain&#39;</span><span class="p">);</span>
 <span class="kd">var</span> <span class="nx">winston</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;winston&#39;</span><span class="p">);</span>
-<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has just one optional parameter, <code>gracefulWorker</code>. If set either on
-construction or later with <code>setGracefulWorker()</code>, <code>shutdown()</code> will be called with any
+<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;lodash&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has just one optional parameter, <code>graceful</code>. If set either on
+construction or later with <code>setGraceful()</code>, <code>shutdown()</code> will be called with any
 unhandled error encountered.</p></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">DomainMiddleware</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
   <span class="nx">_</span><span class="p">.</span><span class="nx">bindAll</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
 
   <span class="nx">options</span> <span class="o">=</span> <span class="nx">options</span> <span class="o">||</span> <span class="p">{};</span>
 
+  <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">closed</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
   <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-  <span class="k">this</span><span class="p">.</span><span class="nx">setGracefulWorker</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">setGraceful</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">graceful</span><span class="p">);</span>
 <span class="p">}</span>
 
-<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">DomainMiddleware</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setGracefulWorker</code> is a way to provide the reference after construction.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setGracefulWorker</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">DomainMiddleware</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setGraceful</code> is a way to provide the reference after construction.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setGraceful</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
 
-  <span class="k">if</span> <span class="p">(</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span> <span class="o">=</span> <span class="nx">gracefulWorker</span><span class="p">;</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">=</span> <span class="nx">graceful</span><span class="p">;</span>
 
-    <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">.</span><span class="nx">addCheck</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;shutdown&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">_this</span><span class="p">.</span><span class="nx">stopServer</span><span class="p">();</span>
+    <span class="p">});</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">addCheck</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
       <span class="k">return</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">activeRequests</span> <span class="o">===</span> <span class="mi">0</span><span class="p">;</span>
     <span class="p">});</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setServer</code> is the more common way to supply an http server to this class.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setServer</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="nx">server</span><span class="p">;</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;No more active sockets!&#39;</span><span class="p">);</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">_this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">_this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">();</span>
+      <span class="p">}</span>
+    <span class="p">});</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>stopServer</code> tells the http server to stop accepting new connections. Unfortunately,
+this isn't enough, as it will continue to service new requests made on already-existing
+keepalive connections.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">stopServer</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">closed</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="k">catch</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">winston</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;Couldn\&#39;t close server: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="p">);</span>
+    <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>middleware</code> should be added as a global middleware, before any handler that might stop
 the processing chain. It wires up a domain to capture any errors produced by the rest
@@ -50,10 +83,16 @@ of that request's handlers.</p></div></div><div class="code"><div class="wrapper
     <span class="nx">_this</span><span class="p">.</span><span class="nx">onError</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">);</span>
   <span class="p">});</span>
 
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">closed</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">closeConnection</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+  <span class="p">}</span>
+
   <span class="nx">d</span><span class="p">.</span><span class="nx">run</span><span class="p">(</span><span class="nx">next</span><span class="p">);</span>
 <span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>getActiveRequests</code> just returns the count of in-progress requests on the http server.</p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">getActiveRequests</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
   <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">activeRequests</span><span class="p">;</span>
-<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-functions">Helper functions</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onError</code> is the method called when a request domain catches an error. It</p>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-functions">Helper functions</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>closeConnection</code></p></div></div><div class="code"><div class="wrapper"><span class="nx">DomainMiddleware</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">closeConnection</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">setHeader</span><span class="p">(</span><span class="s1">&#39;Connection&#39;</span><span class="p">,</span> <span class="s1">&#39;Connection: close&#39;</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>onError</code> is the method called when a request domain catches an error. It</p>
 
 <ol>
 <li>logs the error with winston</li>
@@ -64,10 +103,10 @@ of that request's handlers.</p></div></div><div class="code"><div class="wrapper
   <span class="k">try</span> <span class="p">{</span>
     <span class="nx">winston</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Error handling &#39;</span> <span class="o">+</span> <span class="nx">req</span><span class="p">.</span><span class="nx">url</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">stack</span><span class="p">);</span>
 
-    <span class="nx">res</span><span class="p">.</span><span class="nx">setHeader</span><span class="p">(</span><span class="s1">&#39;Connection&#39;</span><span class="p">,</span> <span class="s1">&#39;Connection: close&#39;</span><span class="p">);</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">closeConnection</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
 
-    <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">)</span> <span class="p">{</span>
-      <span class="k">this</span><span class="p">.</span><span class="nx">gracefulWorker</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">);</span>
     <span class="p">}</span>
 
     <span class="nx">next</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
