@@ -96,6 +96,23 @@ kill PID
 
 <h2 id="history">History</h2>
 
+<h3 id="020-2014-05-25">0.2.0 (2014-05-25)</h3>
+
+<p>Breaking:</p>
+
+<ul>
+<li><code>GracefulWorker</code> was renamed to <code>Graceful</code>, and now allows others to register for shutdown notification, doesn't call <code>server.close()</code> directly, and no longer acts as middleware.</li>
+<li><code>Domain-Middleware</code> now needs a <code>server</code> reference, calls <code>server.close()</code>, registers for <code>Graceful</code> shutdown notification, then sends 'connection:close' for all subsequent requests itself</li>
+<li><code>Master</code> no longer handles shutdown itself, instead delegating to <code>Graceful</code> - if creating manually, be sure to supply a <code>Graceful</code> instance</li>
+<li><code>Startup</code> now only calls <code>messenger</code> if no <code>Graceful</code> instance can be found</li>
+</ul>
+
+<p>Other updates:</p>
+
+<ul>
+<li>Update dev dependencies</li>
+</ul>
+
 <h3 id="011-2014-05-01">0.1.1 (2014-05-01)</h3>
 
 <ul>

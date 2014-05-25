@@ -105,6 +105,19 @@ grunt
 
 ## History
 
+### 0.2.0 (2014-05-25)
+
+Breaking:
+
+* `GracefulWorker` was renamed to `Graceful`, and now allows others to register for shutdown notification, doesn't call `server.close()` directly, and no longer acts as middleware.
+* `Domain-Middleware` now needs a `server` reference, calls `server.close()`, registers for `Graceful` shutdown notification, then sends 'connection:close' for all subsequent requests itself
+* `Master` no longer handles shutdown itself, instead delegating to `Graceful` - if creating manually, be sure to supply a `Graceful` instance
+* `Startup` now only calls `messenger` if no `Graceful` instance can be found
+
+Other updates:
+
+* Update dev dependencies
+
 ### 0.1.1 (2014-05-01)
 
 * `Master.stop()` now takes a callback

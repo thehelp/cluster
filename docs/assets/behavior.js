@@ -64,6 +64,14 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
                   "type": "heading",
                   "data": {
                     "level": 3,
+                    "title": "0.2.0 (2014-05-25)",
+                    "slug": "020-2014-05-25"
+                  },
+                  "depth": 3
+                }, {
+                  "type": "heading",
+                  "data": {
+                    "level": 3,
                     "title": "0.1.1 (2014-05-01)",
                     "slug": "011-2014-05-01"
                   },
