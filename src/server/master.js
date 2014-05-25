@@ -177,5 +177,3 @@ Master.prototype.restartWorker = function(worker) {
     }
   }
 };
-
-
