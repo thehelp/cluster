@@ -16,9 +16,9 @@ There's just one optional environment variable:
 "NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
 ```
 
-By default, both `Startup` (for top-level exceptions) and `Graceful` (for exceptions delivered by a `shutdown()` call) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
+By default, both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
 
-Or you can use the classes a little more manually, and provide `messenger` callbacks of the form `function(err, options, cb)` on construction of both of these classes.
+Or you can use the classes a little more manually, and provide `messenger` callbacks of the form `function(err, options, cb)` on construction of both of these classes. You'll still need to set the environment variables; we prefer to show you an error on startup of the process vs. when you have an error. :0)
 
 ## Usage
 

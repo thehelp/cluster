@@ -15,9 +15,9 @@
 <pre><code>"NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
 </code></pre>
 
-<p>By default, both <code>Startup</code> (for top-level exceptions) and <code>Graceful</code> (for exceptions delivered by a <code>shutdown()</code> call) use <code>thehelp-last-ditch</code> to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.</p>
+<p>By default, both <code>Graceful</code> (for exceptions delivered by a <code>shutdown()</code> call) and <code>Startup</code> (if a <code>Graceful</code> instance cannot be found) use <code>thehelp-last-ditch</code> to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.</p>
 
-<p>Or you can use the classes a little more manually, and provide <code>messenger</code> callbacks of the form <code>function(err, options, cb)</code> on construction of both of these classes.</p>
+<p>Or you can use the classes a little more manually, and provide <code>messenger</code> callbacks of the form <code>function(err, options, cb)</code> on construction of both of these classes. You'll still need to set the environment variables; we prefer to show you an error on startup of the process vs. when you have an error. :0)</p>
 
 <h2 id="usage">Usage</h2>
 
