@@ -60,6 +60,22 @@ cluster({
 
 A top-level domain will be created both for master and worker processes. If you don't provide a `master` callback, an instance of the `Master` class will be created for your master process to manage your worker processes.
 
+In more complex scenarios, you can register for shutdown notifications and delay shutdown like this:
+
+```
+var graceful = new cluster.Graceful();
+graceful.on('shutdown', function() {
+  // start shutting down
+});
+graceful.addCheck(function() {
+  // return true if ready to shut down
+  // called frequently when Graceful wants to shut down
+})
+```
+
+Take a look at how `Master` and `DomainMiddleware` delegate to `Graceful` for more detail.
+
+
 ## Development
 
 Run unit and integration tests like this:
