@@ -1,8 +1,8 @@
 {
   "name": "thehelp-cluster",
   "version": "0.1.1",
-  "private": true,
   "main": "src/server/index.js",
+
   "dependencies": {
     "lodash": "2.x",
     "winston": "0.7.x"
@@ -24,12 +24,14 @@
     "thehelp-project": "2.5.0",
     "thehelp-test": "2.0.8"
   },
+
   "scripts": {
     "blanket": {
       "data-cover-only": "src",
       "data-cover-never": "['lib/','node_modules/','test/','src/client']"
     }
   },
+
   "author": "Scott Nonnenberg",
   "repository": {
     "type": "git",
