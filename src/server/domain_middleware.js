@@ -92,7 +92,7 @@ DomainMiddleware.prototype.onError = function(err, req, res, next) {
 
     next(err);
   }
-  catch(err) {
+  catch (err) {
     winston.error('Error handling domain error for ' + req.url + ': ' + err.stack);
   }
 };

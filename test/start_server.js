@@ -19,18 +19,18 @@ var app = express();
 app.use(domainMiddleware.middleware);
 app.use(gracefulWorker.middleware);
 
-app.get('/', function (req, res) {
+app.get('/', function(req, res) {
   res.send('success');
 });
 
-app.get('/delay', function (req, res) {
+app.get('/delay', function(req, res) {
   res.writeHead(200, {'Content-Type': 'text/plain'});
-  setTimeout(function () {
+  setTimeout(function() {
     res.end('OK\n');
   }, 5000);
 });
 
-app.get('/error', function () {
+app.get('/error', function() {
   fs.readFile('something', function(err, result) {
     winston.info(result.toString());
   });
