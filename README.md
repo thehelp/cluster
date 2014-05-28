@@ -105,6 +105,10 @@ grunt
 
 ## History
 
+### 0.2.1 (2014-05-27)
+
+* Pare down what's in the npm package
+
 ### 0.2.0 (2014-05-25)
 
 Breaking:

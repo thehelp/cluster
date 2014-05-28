@@ -64,6 +64,14 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
                   "type": "heading",
                   "data": {
                     "level": 3,
+                    "title": "0.2.1 (2014-05-27)",
+                    "slug": "021-2014-05-27"
+                  },
+                  "depth": 3
+                }, {
+                  "type": "heading",
+                  "data": {
+                    "level": 3,
                     "title": "0.2.0 (2014-05-25)",
                     "slug": "020-2014-05-25"
                   },
@@ -135,6 +143,14 @@ f.event={add:function(a,c,d,e,g){var h,i,j,k,l,m,n,o,p,q,r,s;if(!(a.nodeType===3
           "depth": 2,
           "children": [
             {
+              "type": "heading",
+              "data": {
+                "level": 3,
+                "title": "0.2.1 (2014-05-27)",
+                "slug": "021-2014-05-27"
+              },
+              "depth": 3
+            }, {
               "type": "heading",
               "data": {
                 "level": 3,
