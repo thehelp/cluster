@@ -7,6 +7,7 @@
 
 var cluster = require('cluster');
 var domain = require('domain');
+var path = require('path');
 
 var _ = require('lodash');
 var winston = require('winston');
@@ -26,9 +27,13 @@ being called, and prevents any kind of automatic graceful shutdown.
 
 */
 function Startup(options) {
+  /*jshint maxcomplexity: 9 */
+
   _.bindAll(this);
 
   options = options || {};
+
+  this.logs = options.logs || process.env.LOGS || './logs/';
 
   this.master = options.master || function() {
     var Master = require('./master');
@@ -83,9 +88,10 @@ Startup.prototype.timestampForPath = function() {
 // in the `logs` directory.
 Startup.prototype.setupLogs = function() {
   var type = this.cluster.isMaster ? 'master' : 'worker';
-  core.logs.setupFile(
-    'logs/' + type + '-' + this.timestampForPath() + '-' + process.pid + '.log'
-  );
+  core.logs.setupFile(path.join(
+    this.logs,
+    type + '-' + this.timestampForPath() + '-' + process.pid + '.log'
+  ));
   core.logs.setupConsole();
 };
 
