@@ -105,6 +105,10 @@ grunt
 
 ## History
 
+### 0.2.2 (2014-07-14)
+
+* `Startup` now allows configuration of logs directory - via `options.logs` on construction or the LOGS environment variable. Defaults to './logs/'
+
 ### 0.2.1 (2014-05-27)
 
 * Pare down what's in the npm package
