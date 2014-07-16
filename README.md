@@ -105,6 +105,10 @@ grunt
 
 ## History
 
+### 0.2.3 (2014-07-16)
+
+* `DomainMiddleware` no longer warns on 'unfinished' responses; seems that this event isn't fully reliable in the face of all server topologies. We bind to 'finish', 'close' and 'end' events on the `response` object, but the handler is wrapped with `_.once()`.
+
 ### 0.2.2 (2014-07-14)
 
 * `Startup` now allows configuration of logs directory - via `options.logs` on construction or the LOGS environment variable. Defaults to './logs/'
