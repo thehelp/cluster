@@ -86,14 +86,13 @@ DomainMiddleware.prototype.middleware = function(req, res, next) {
   d.add(req);
   d.add(res);
 
-  //'finish' is sent when request contents have been sent to OS for sending on socket
-  res.on('finish', function() {
+  // bind to all three to be completely sure; handler only called once
+  var finish = _.once(function() {
     _this.onFinish(req);
   });
-  //'close' is sent when server doesn't send a response to a request
-  res.on('close', function() {
-    _this.onClose(req);
-  });
+  res.on('finish', finish);
+  res.on('close', finish);
+  res.on('end', finish);
 
   d.on('error', function(err) {
     _this.onError(err, req, res, next);
@@ -154,12 +153,3 @@ DomainMiddleware.prototype.onStart = function() {
 DomainMiddleware.prototype.onFinish = function() {
   this.activeRequests = this.activeRequests - 1;
 };
-
-// `onClose` logs, because an incoming http request never got a response.
-DomainMiddleware.prototype.onClose = function(req) {
-  winston.warn(
-    req.url + ': response incomplete - was either interrupted or never started.'
-  );
-  this.onFinish();
-};
-
