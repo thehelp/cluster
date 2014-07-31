@@ -105,6 +105,11 @@ grunt
 
 ## History
 
+### 0.2.4 (2014-07-31)
+
+* Update to the more bulletproofed 0.3.x-series of `thehelp-last-ditch`
+* Update dev dependencies
+
 ### 0.2.3 (2014-07-16)
 
 * `DomainMiddleware` no longer warns on 'unfinished' responses; seems that this event isn't fully reliable in the face of all server topologies. We bind to 'finish', 'close' and 'end' events on the `response` object, but the handler is wrapped with `_.once()`.

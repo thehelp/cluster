@@ -1,6 +1,6 @@
 {
   "name": "thehelp-cluster",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "main": "src/server/index.js",
 
   "dependencies": {
