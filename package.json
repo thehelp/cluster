@@ -9,7 +9,7 @@
   },
   "peerDependencies": {
     "thehelp-core": "1.x",
-    "thehelp-last-ditch": "0.2.x",
+    "thehelp-last-ditch": "0.3.x",
     "thehelp-messaging": "0.1.x"
   },
   "devDependencies": {
