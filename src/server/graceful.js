@@ -40,18 +40,18 @@ function Graceful(options) {
 
   var _this = this;
   this.sending = false;
-  this.addCheck(function() {
+  this.addCheck(function areWeSendingError() {
     return _this.sending === false;
   });
 
   this.process = options.process || process;
-  this.process.on('SIGTERM', function() {
+  this.process.on('SIGTERM', function gracefulShutdown() {
     _this.shutdown();
   });
 
   this.cluster = options.cluster || cluster;
   if (this.cluster.worker) {
-    this.cluster.worker.on('disconnect', function() {
+    this.cluster.worker.on('disconnect', function gracefulShutdown() {
       _this.shutdown();
     });
 
@@ -91,9 +91,6 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
     this.sendError(err, info);
     this.emit('shutdown');
     this.exit();
-  }
-  else {
-    winston.warn('Already in the process of shutting down');
   }
 };
 

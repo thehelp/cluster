@@ -35,7 +35,7 @@ function Startup(options) {
 
   this.logs = options.logs || process.env.LOGS || './logs/';
 
-  this.master = options.master || function() {
+  this.master = options.master || function defaultMaster() {
     var Master = require('./master');
     var master = new Master({
       graceful: new Graceful()

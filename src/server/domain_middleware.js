@@ -32,11 +32,11 @@ DomainMiddleware.prototype.setGraceful = function setGraceful(graceful) {
   if (graceful) {
     this.graceful = graceful;
 
-    this.graceful.on('shutdown', function() {
+    this.graceful.on('shutdown', function domainStopServer() {
       _this.stopServer();
     });
 
-    this.graceful.addCheck(function() {
+    this.graceful.addCheck(function domainActiveRequests() {
       return _this.activeRequests === 0;
     });
   }
@@ -49,8 +49,7 @@ DomainMiddleware.prototype.setServer = function setServer(server) {
   if (server) {
     this.server = server;
 
-    this.server.on('close', function() {
-      winston.info('No more active sockets!');
+    this.server.on('close', function domainGracefulShutdown() {
       if (_this.graceful) {
         _this.graceful.shutdown();
       }

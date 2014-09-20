@@ -9,9 +9,8 @@ var Graceful = require('./graceful');
 var Startup = require('./startup');
 var DomainMiddleware = require('./domain_middleware');
 
-// The root object returned via `require()` is this function - creates and starts a
-// `Startup` object.
-var start = function(options) {
+// The root object returned via `require()` is this function
+var start = function createStartupAndStart(options) {
   var startup = new Startup(options);
   startup.setupLogs();
   startup.start();
