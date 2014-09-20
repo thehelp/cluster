@@ -57,7 +57,7 @@ function Master(options) {
 module.exports = Master;
 
 // `start` gets all the requested worker processes started
-Master.prototype.start = function() {
+Master.prototype.start = function start() {
   winston.warn('Starting master');
   var workers = this.numberWorkers || os.cpus().length;
   for (var i = 0; i < workers; i = i + 1) {
@@ -67,7 +67,7 @@ Master.prototype.start = function() {
 
 // `gracefulShutdown` uses `stop` to kill all workers, then shuts down this process as
 // soon as no more workers are alive.
-Master.prototype.shutdown = function() {
+Master.prototype.shutdown = function shutdown() {
   var _this = this;
 
   winston.warn('Gracefully shutting down master!');
@@ -79,7 +79,7 @@ Master.prototype.shutdown = function() {
 };
 
 // `setGraceful` is a way to provide the reference after construction.
-Master.prototype.setGraceful = function(graceful) {
+Master.prototype.setGraceful = function setGraceful(graceful) {
   var _this = this;
 
   if (graceful) {
@@ -100,7 +100,7 @@ Master.prototype.setGraceful = function(graceful) {
 
 // `stop` kills all worker processes, first using a 'SIGTERM' signal to allow for graceful
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
-Master.prototype.stop = function(cb) {
+Master.prototype.stop = function stop(cb) {
   var _this = this;
   winston.warn('Stopping all workers');
 
@@ -132,7 +132,7 @@ Master.prototype.stop = function(cb) {
 
 // `startWorker` does a basic `cluster.fork()`, saving the result and the current time to
 // `this.workers`.
-Master.prototype.startWorker = function() {
+Master.prototype.startWorker = function startWorker() {
   var worker = this.cluster.fork();
   var pid = worker.process.pid;
   this.workers[pid] = {
@@ -145,7 +145,7 @@ Master.prototype.startWorker = function() {
 // `restartWorker` first eliminates the dead worker from `this.workers`, then either
 // starts a new worker immediately, or after a delay of `this.delayStart` if the process
 // wasn't alive for longer than `this.spinTimeout`.
-Master.prototype.restartWorker = function(worker) {
+Master.prototype.restartWorker = function restartWorker(worker) {
   var _this = this;
 
   var pid = worker.process.pid;

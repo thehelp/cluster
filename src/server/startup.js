@@ -64,7 +64,7 @@ module.exports = Startup;
 
 // `start` checks whether the current process is the master, then calls the appropriate
 // `master` or `worker` in the contxt of a top-level domain.
-Startup.prototype.start = function() {
+Startup.prototype.start = function start() {
   if (this.cluster.isMaster) {
     this.domain.run(this.master);
   }
@@ -77,7 +77,7 @@ Startup.prototype.start = function() {
 // ========
 
 // `timestampForPath` makes `toISOString()` timestamps safe for filenames.
-Startup.prototype.timestampForPath = function() {
+Startup.prototype.timestampForPath = function timestampForPath() {
   var result = core.logs.timestamp();
   result = result.replace(':', '-');
   return result;
@@ -86,7 +86,7 @@ Startup.prototype.timestampForPath = function() {
 // `setupLogs` sets up colorful, formatted console logging as well as a file appropriate
 // to the process type. Files are of the form 'worker-2014-04-28T03-04:03.232Z-32706.log'
 // in the `logs` directory.
-Startup.prototype.setupLogs = function() {
+Startup.prototype.setupLogs = function setupLogs() {
   var type = this.cluster.isMaster ? 'master' : 'worker';
   core.logs.setupFile(path.join(
     this.logs,
@@ -107,7 +107,7 @@ send a generic 'SIGTERM' signal to the current process.
 `errorHandler` can be specified for custom error-handling logic, superceding all `onError`
 behavior described above.
 */
-Startup.prototype.onError = function(err) {
+Startup.prototype.onError = function onError(err) {
   if (this.errorHandler) {
     return this.errorHandler(err);
   }

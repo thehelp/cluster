@@ -82,7 +82,7 @@ graceful.on('shutdown', function() {
 })
 ```
 */
-Graceful.prototype.shutdown = function(err, info) {
+Graceful.prototype.shutdown = function shutdown(err, info) {
   if (!this.closed) {
     this.closed = true;
     this.error = err;
@@ -99,12 +99,12 @@ Graceful.prototype.shutdown = function(err, info) {
 
 // `addCheck` allows you to provide a callback you can use to delay `process.exit()` until
 // you are finished doing something.
-Graceful.prototype.addCheck = function(check) {
+Graceful.prototype.addCheck = function addCheck(check) {
   this.checks.push(check);
 };
 
 // `hasShutdown` tells you if a shutdown is in-process.
-Graceful.prototype.hasShutdown = function() {
+Graceful.prototype.hasShutdown = function hasShutdown() {
   return closed;
 };
 
@@ -114,7 +114,7 @@ Graceful.prototype.hasShutdown = function() {
 // `sendError` uses `this.messenger` to save/send the error provided to `shutdown()`. It
 // it sets `this.sending` to `true` so we won't take the process down before the call is
 // complete.
-Graceful.prototype.sendError = function(err, info) {
+Graceful.prototype.sendError = function sendError(err, info) {
   var _this = this;
 
   if (err) {
@@ -127,7 +127,7 @@ Graceful.prototype.sendError = function(err, info) {
 };
 
 // `check` returns true if all check methods returned true.
-Graceful.prototype.check = function() {
+Graceful.prototype.check = function check() {
   if (!this.checks || !this.checks.length) {
     return true;
   }
@@ -139,7 +139,7 @@ Graceful.prototype.check = function() {
 // `exit` exits if `check()` returns true. Otherwise it sets an interval to continue
 // trying. It also sets a timer - if we never get a successful `check()` call, we
 // take down the process anyway.
-Graceful.prototype.exit = function() {
+Graceful.prototype.exit = function exit() {
   var _this = this;
 
   winston.info('Calling all provided pre-exit check functions...');
@@ -173,7 +173,7 @@ Unfortunately, because sometimes winston gets a bit messed up after unhandled ex
 we also set a timer to make sure to take process down even if winston doesn't call the
 callback.
 */
-Graceful.prototype.finalLog = function(message) {
+Graceful.prototype.finalLog = function finalLog(message) {
   var _this = this;
 
   winston.info(message, function(err, level, msg, meta) {
@@ -188,7 +188,7 @@ Graceful.prototype.finalLog = function(message) {
 
 // `die` calls `process.exit()` with the right error code based on `this.error` (set in
 // `shutdown()`).
-Graceful.prototype.die = function() {
+Graceful.prototype.die = function die() {
   var code = this.error ? this.error.code || 1 : 0;
   process.exit(code);
 };

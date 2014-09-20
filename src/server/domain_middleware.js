@@ -26,7 +26,7 @@ function DomainMiddleware(options) {
 module.exports = DomainMiddleware;
 
 // `setGraceful` is a way to provide the reference after construction.
-DomainMiddleware.prototype.setGraceful = function(graceful) {
+DomainMiddleware.prototype.setGraceful = function setGraceful(graceful) {
   var _this = this;
 
   if (graceful) {
@@ -43,7 +43,7 @@ DomainMiddleware.prototype.setGraceful = function(graceful) {
 };
 
 // `setServer` is the more common way to supply an http server to this class.
-DomainMiddleware.prototype.setServer = function(server) {
+DomainMiddleware.prototype.setServer = function setServer(server) {
   var _this = this;
 
   if (server) {
@@ -61,7 +61,7 @@ DomainMiddleware.prototype.setServer = function(server) {
 // `stopServer` tells the http server to stop accepting new connections. Unfortunately,
 // this isn't enough, as it will continue to service new requests made on already-existing
 // keepalive connections.
-DomainMiddleware.prototype.stopServer = function() {
+DomainMiddleware.prototype.stopServer = function stopServer() {
   this.closed = true;
 
   if (this.server) {
@@ -69,7 +69,7 @@ DomainMiddleware.prototype.stopServer = function() {
       this.server.close();
     }
     catch (err) {
-      winston.info('Couldn\'t close server: ' + err.message);
+      winston.error('Couldn\'t close server: ' + err.message);
     }
   }
 };
@@ -77,7 +77,7 @@ DomainMiddleware.prototype.stopServer = function() {
 // `middleware` should be added as a global middleware, before any handler that might stop
 // the processing chain. It wires up a domain to capture any errors produced by the rest
 // of that request's handlers.
-DomainMiddleware.prototype.middleware = function(req, res, next) {
+DomainMiddleware.prototype.middleware = function middleware(req, res, next) {
   var _this = this;
   var d = domain.create();
 
@@ -106,7 +106,7 @@ DomainMiddleware.prototype.middleware = function(req, res, next) {
 };
 
 // `getActiveRequests` just returns the count of in-progress requests on the http server.
-DomainMiddleware.prototype.getActiveRequests = function() {
+DomainMiddleware.prototype.getActiveRequests = function getActiveRequests() {
   return this.activeRequests;
 };
 
@@ -114,7 +114,7 @@ DomainMiddleware.prototype.getActiveRequests = function() {
 // ========
 
 // `closeConnection`
-DomainMiddleware.prototype.closeConnection = function(res) {
+DomainMiddleware.prototype.closeConnection = function closeConnection(res) {
   res.setHeader('Connection', 'Connection: close');
 };
 
@@ -127,7 +127,7 @@ DomainMiddleware.prototype.closeConnection = function(res) {
   4. and passes the error to the registered express error handler
 
 */
-DomainMiddleware.prototype.onError = function(err, req, res, next) {
+DomainMiddleware.prototype.onError = function onError(err, req, res, next) {
   try {
     winston.error('Error handling ' + req.url + ': ' + err.stack);
 
@@ -145,11 +145,11 @@ DomainMiddleware.prototype.onError = function(err, req, res, next) {
 };
 
 // `onStart` increments the in-progress request count.
-DomainMiddleware.prototype.onStart = function() {
+DomainMiddleware.prototype.onStart = function onStart() {
   this.activeRequests = this.activeRequests + 1;
 };
 
 // `onFinish` decrements the in-progress request count.
-DomainMiddleware.prototype.onFinish = function() {
+DomainMiddleware.prototype.onFinish = function onFinish() {
   this.activeRequests = this.activeRequests - 1;
 };
