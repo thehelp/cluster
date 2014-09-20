@@ -32,6 +32,7 @@ var domainMiddleware = new cluster.DomainMiddleware({
 });
 
 var app = express();
+
 // this should be installed before any of your processing
 app.use(domainMiddleware.middleware);
 
@@ -60,6 +61,8 @@ cluster({
 
 A top-level domain will be created both for master and worker processes. If you don't provide a `master` callback, an instance of the `Master` class will be created for your master process to manage your worker processes.
 
+## Advanced
+
 In more complex scenarios, you can register for shutdown notifications and delay shutdown like this:
 
 ```
@@ -73,8 +76,7 @@ graceful.addCheck(function() {
 })
 ```
 
-Take a look at how `Master` and `DomainMiddleware` delegate to `Graceful` for more detail.
-
+Take a look at how `Master` and `DomainMiddleware` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
 
 ## Development
 
@@ -97,7 +99,7 @@ ps | grep node
 kill PID
 ```
 
-Tests, static analysis, documentation generation and more are all run by default:
+Tests, static analysis, documentation generation and more are all run by default. Take a look at [`thehelp-project`](https://github.com/thehelp/project) documentation to get it running successfully:
 
 ```
 grunt
