@@ -130,6 +130,9 @@ DomainMiddleware.prototype.onError = function onError(err, req, res, next) {
   try {
     winston.error('Error handling ' + req.url + ': ' + err.stack);
 
+    //Don't want the entire domain object to pollute the log entry for this error
+    delete err.domain;
+
     this.closeConnection(res);
 
     if (this.graceful) {

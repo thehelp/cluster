@@ -113,6 +113,10 @@ Startup.prototype.onError = function onError(err) {
   }
 
   winston.error('Top-level error; shutting down: ' + err.stack);
+
+  //Don't want the entire domain object to pollute the log entry for this error
+  delete err.domain;
+
   if (Graceful.instance) {
     return Graceful.instance.shutdown(err);
   }
