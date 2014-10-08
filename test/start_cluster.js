@@ -8,6 +8,7 @@ var cluster = require('../src/server/index');
 cluster({
   master: function() {
     var master = new cluster.Master({
+      spinTimeout: 100,
       graceful: new cluster.Graceful()
     });
     master.start();

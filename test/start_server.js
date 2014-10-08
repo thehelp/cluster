@@ -5,18 +5,29 @@ process.env = require('../env.json');
 
 var fs = require('fs');
 var http = require('http');
+var cluster = require('cluster');
 
 var winston = require('winston');
 var express = require('express');
-var cluster = require('../src/server/index');
+var morgan = require('morgan');
 
-var graceful = new cluster.Graceful();
-var domainMiddleware = new cluster.DomainMiddleware({
+var tc = require('../src/server/index');
+
+var graceful = new tc.Graceful();
+var domainMiddleware = new tc.DomainMiddleware({
   graceful: graceful
 });
 
 var app = express();
+
+app.use(morgan('combined'));
 app.use(domainMiddleware.middleware);
+
+var worker = cluster.isMaster ? 'n/a' : cluster.worker.id;
+app.use(function(req, res, next) {
+  res.header('X-Worker', worker);
+  next();
+});
 
 app.get('/', function(req, res) {
   res.send('success');
@@ -26,7 +37,7 @@ app.get('/delay', function(req, res) {
   res.writeHead(200, {'Content-Type': 'text/plain'});
   setTimeout(function() {
     res.end('OK\n');
-  }, 5000);
+  }, 2000);
 });
 
 app.get('/error', function() {
@@ -46,13 +57,15 @@ app.get('/hang', function() {
 });
 
 app.use(function(req, res) {
-  res.send('could not find that!', 404);
+  res.status(404);
+  res.send('could not find that!');
 });
 
 app.use(function(err, req, res, next) {
   /*jshint unused: false */
   res.type('txt');
-  res.send('error! ' + err.stack, 500);
+  res.status(500);
+  res.send('error! ' + err.stack);
 });
 
 var server = http.createServer(app);
