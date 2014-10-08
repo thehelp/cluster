@@ -40,7 +40,7 @@ function Graceful(options) {
 
   var _this = this;
   this.sending = false;
-  this.addCheck(function areWeSendingError() {
+  this.addCheck(function areWeSending() {
     return _this.sending === false;
   });
 
