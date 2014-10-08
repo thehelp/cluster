@@ -20,6 +20,11 @@ function DomainMiddleware(options) {
   this.closed = false;
   this.activeRequests = 0;
 
+  this.development = options.development;
+  if (typeof this.development === 'undefined') {
+    this.development = (process.env.NODE_ENV === 'development');
+  }
+
   this.setGraceful(options.graceful);
 }
 
@@ -37,7 +42,7 @@ DomainMiddleware.prototype.setGraceful = function setGraceful(graceful) {
     });
 
     this.graceful.addCheck(function domainActiveRequests() {
-      return _this.activeRequests === 0;
+      return _this.development || _this.activeRequests === 0;
     });
   }
 };
@@ -101,7 +106,12 @@ DomainMiddleware.prototype.middleware = function middleware(req, res, next) {
     this.closeConnection(res);
   }
 
-  d.run(next);
+  if (this.development) {
+    next();
+  }
+  else {
+    d.run(next);
+  }
 };
 
 // `getActiveRequests` just returns the count of in-progress requests on the http server.
