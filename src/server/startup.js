@@ -9,7 +9,6 @@ var cluster = require('cluster');
 var domain = require('domain');
 var path = require('path');
 
-var _ = require('lodash');
 var winston = require('winston');
 
 var core = require('thehelp-core');
@@ -28,8 +27,6 @@ being called, and prevents any kind of automatic graceful shutdown.
 */
 function Startup(options) {
   /*jshint maxcomplexity: 9 */
-
-  _.bindAll(this);
 
   options = options || {};
 
@@ -55,7 +52,7 @@ function Startup(options) {
   }
 
   this.domain = domain.create();
-  this.domain.on('error', this.onError);
+  this.domain.on('error', this.onError.bind(this));
 
   this.cluster = options.cluster || cluster;
 }
