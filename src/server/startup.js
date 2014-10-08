@@ -26,11 +26,12 @@ being called, and prevents any kind of automatic graceful shutdown.
 
 */
 function Startup(options) {
-  /*jshint maxcomplexity: 9 */
+  /*jshint maxcomplexity: 10 */
 
   options = options || {};
 
   this.logs = options.logs || process.env.LOGS || './logs/';
+  this.log = options.log || winston;
 
   this.master = options.master || function defaultMaster() {
     var Master = require('./master');
@@ -94,8 +95,8 @@ Startup.prototype.setupLogs = function setupLogs() {
 
 /*
 `onError` is called when the top-level domain is sent an error. Whenever this happens
-it's definitely something serious, so we log the error via winston, then send it via the
-`messenger` callback, and finally start the process of graceful shutdown.
+it's definitely something serious, so we log the error via `this.log`, then send it via
+the `messenger` callback, and finally start the process of graceful shutdown.
 
 First we try to shutdown an active [`Master`](./master.html) instance. Then we try for
 a [`Graceful`](./graceful.html) instance. If we can find none of these, we
@@ -109,7 +110,7 @@ Startup.prototype.onError = function onError(err) {
     return this.errorHandler(err);
   }
 
-  winston.error('Top-level error; shutting down: ' + err.stack);
+  this.log.error('Top-level error; shutting down: ' + core.breadcrumbs.toString(err));
 
   //Don't want the entire domain object to pollute the log entry for this error
   delete err.domain;
