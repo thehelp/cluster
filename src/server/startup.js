@@ -9,8 +9,6 @@ var cluster = require('cluster');
 var domain = require('domain');
 var path = require('path');
 
-var winston = require('winston');
-
 var core = require('thehelp-core');
 var Graceful = require('./graceful');
 
@@ -20,7 +18,6 @@ starts a worker process. Optional parameters:
 
 + `logsDir` -  your logs directory, defaulting to './logs/' (can also be specified by the
 THEHELP_LOGS_DIR environment variable)
-+ `log` -  an object to replicate the `winston` interface
 + `masterOptions` - options to be passed to the `Master` class on construction in the
 default master start callback
 + `master` - a callback to start the cluster's master process
@@ -41,7 +38,6 @@ function Startup(options) {
   }
 
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
-  this.log = options.log || winston;
 
   this.masterOptions = options.masterOptions;
   this.master = options.master || this._defaultMasterStart.bind(this);
@@ -96,8 +92,8 @@ Startup.prototype.getLogFilename = function getLogFilename() {
 
 /*
 `onError` is called when the top-level domain is sent an error. Whenever this happens
-it's definitely something serious, so we log the error via `this.log`, then send it via
-the `messenger` callback, and finally start the process of graceful shutdown.
+it's definitely something serious, send it via the `messenger()` callback then start the
+process of graceful shutdown.
 
 If [`Graceful.instance`](./graceful.html) is found, its `shutdown()` method will be
 called, preventing the `messenger()` handler from being called.
@@ -106,14 +102,12 @@ Lastly `errorHandler` can be specified for custom error-handling logic, superced
 other behavior in this method.
 */
 Startup.prototype._onError = function _onError(err) {
+  //Don't want the entire domain object to pollute the log entry for this error
+  delete err.domain;
+
   if (this.errorHandler) {
     return this.errorHandler(err);
   }
-
-  this.log.error('Top-level error; shutting down: ' + core.breadcrumbs.toString(err));
-
-  //Don't want the entire domain object to pollute the log entry for this error
-  delete err.domain;
 
   if (Graceful.instance) {
     return Graceful.instance.shutdown(err);
