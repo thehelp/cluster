@@ -1,14 +1,47 @@
 
 'use strict';
 
+var fs = require('fs');
+var path = require('path');
+
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
+var util = require('./util');
 
 describe('thehelp-cluster', function() {
-  var agent;
+  var agent, child;
 
-  before(function() {
+  before(function(done) {
     agent = supertest.agent('http://localhost:3000');
+
+    util.emptyDir(util.logsDir, function(err) {
+      if (err) {
+        throw err;
+      }
+
+      child = util.startProcess(path.join(__dirname, '../../../test/start_cluster.js'));
+      setTimeout(done, 1000);
+    });
+  });
+
+  after(function(done) {
+    child.on('close', function() {
+      done();
+    });
+
+    child.kill();
+  });
+
+  it('creates two log files on startup', function(done) {
+    fs.readdir(util.logsDir, function(err, files) {
+      if (err) {
+        throw err;
+      }
+
+      expect(files).to.have.length(2);
+
+      done();
+    });
   });
 
   it('root returns', function(done) {
@@ -35,6 +68,18 @@ describe('thehelp-cluster', function() {
       .get('/')
       .expect('X-Worker', '2')
       .expect(200, done);
+  });
+
+  it('three log files now in directory', function(done) {
+    fs.readdir(util.logsDir, function(err, files) {
+      if (err) {
+        throw err;
+      }
+
+      expect(files).to.have.length(3);
+
+      done();
+    });
   });
 
   it('async error only takes down process after long task is complete', function(done) {
@@ -78,6 +123,18 @@ describe('thehelp-cluster', function() {
             done();
           });
       });
+  });
+
+  it('four total log files', function(done) {
+    fs.readdir(util.logsDir, function(err, files) {
+      if (err) {
+        throw err;
+      }
+
+      expect(files).to.have.length(4);
+
+      done();
+    });
   });
 
 });

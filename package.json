@@ -13,8 +13,8 @@
     "blanket": "1.1.6",
     "express": "4.9.5",
     "grunt": "0.4.5",
-    "grunt-develop": "git+ssh://git@github.com:scottnonnenberg/grunt-develop#228a2afba4470661612c9ddc3e3447980a404539",
     "morgan": "1.3.2",
+    "rimraf": "2.2.8",
     "supertest": "0.14.0",
     "thehelp-project": "3.3.1",
     "thehelp-test": "3.1.0"

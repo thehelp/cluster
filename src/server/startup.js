@@ -18,11 +18,16 @@ var Graceful = require('./graceful');
 The `constructor` requires only one parameter `worker`, a callback which
 starts a worker process. Optional parameters:
 
++ `logsDir` -  your logs directory, defaulting to './logs/' (can also be specified by the
+THEHELP_LOGS_DIR environment variable)
++ `log` -  an object to replicate the `winston` interface
++ `masterOptions` - options to be passed to the `Master` class on construction in the
+default master start callback
 + `master` - a callback to start the cluster's master process
-+ `messenger` -  a `function(err, options, cb)`, defaulting to
-`thehelp-last-ditch`. Passed any top-level exceptions encountered.
 + `errorHandler` - an alternate handler for a top-level error. Prevents `messenger` from
 being called, and prevents any kind of automatic graceful shutdown.
++ `messenger` -  a `function(err, options, cb)`, defaulting to
+`thehelp-last-ditch`. Passed any top-level exceptions encountered.
 
 */
 function Startup(options) {
@@ -30,21 +35,16 @@ function Startup(options) {
 
   options = options || {};
 
-  this.logs = options.logs || process.env.LOGS || './logs/';
-  this.log = options.log || winston;
-
-  this.master = options.master || function defaultMaster() {
-    var Master = require('./master');
-    var master = new Master({
-      graceful: new Graceful()
-    });
-    master.start();
-  };
-
   this.worker = options.worker;
   if (!this.worker) {
     throw new Error('Need to provide a worker callback!');
   }
+
+  this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
+  this.log = options.log || winston;
+
+  this.masterOptions = options.masterOptions;
+  this.master = options.master || this._defaultMasterStart.bind(this);
 
   this.errorHandler = options.errorHandler;
   //errorHandler supercedes messenger
@@ -53,12 +53,15 @@ function Startup(options) {
   }
 
   this.domain = domain.create();
-  this.domain.on('error', this.onError.bind(this));
+  this.domain.on('error', this._onError.bind(this));
 
   this.cluster = options.cluster || cluster;
 }
 
 module.exports = Startup;
+
+// Public methods
+// ========
 
 // `start` checks whether the current process is the master, then calls the appropriate
 // `master` or `worker` in the contxt of a top-level domain.
@@ -71,41 +74,33 @@ Startup.prototype.start = function start() {
   }
 };
 
-// Helper methods
-// ========
-
-// `timestampForPath` makes `toISOString()` timestamps safe for filenames.
-Startup.prototype.timestampForPath = function timestampForPath() {
-  var result = core.logs.timestamp();
-  result = result.replace(':', '-');
-  return result;
-};
-
 // `setupLogs` sets up colorful, formatted console logging as well as a file appropriate
 // to the process type. Files are of the form 'worker-2014-04-28T03-04:03.232Z-32706.log'
 // in the `logs` directory.
 Startup.prototype.setupLogs = function setupLogs() {
   var type = this.cluster.isMaster ? 'master' : 'worker';
   core.logs.setupFile(path.join(
-    this.logs,
-    type + '-' + this.timestampForPath() + '-' + process.pid + '.log'
+    this.logsDir,
+    type + '-' + this._timestampForPath() + '-' + process.pid + '.log'
   ));
   core.logs.setupConsole();
 };
+
+// Helper methods
+// ========
 
 /*
 `onError` is called when the top-level domain is sent an error. Whenever this happens
 it's definitely something serious, so we log the error via `this.log`, then send it via
 the `messenger` callback, and finally start the process of graceful shutdown.
 
-First we try to shutdown an active [`Master`](./master.html) instance. Then we try for
-a [`Graceful`](./graceful.html) instance. If we can find none of these, we
-send a generic 'SIGTERM' signal to the current process.
+If [`Graceful.instance`](./graceful.html) is found, its `shutdown()` method will be
+called, preventing the `messenger()` handler from being called.
 
-`errorHandler` can be specified for custom error-handling logic, superceding all `onError`
-behavior described above.
+Lastly `errorHandler` can be specified for custom error-handling logic, superceding all
+other behavior in this method.
 */
-Startup.prototype.onError = function onError(err) {
+Startup.prototype._onError = function _onError(err) {
   if (this.errorHandler) {
     return this.errorHandler(err);
   }
@@ -122,4 +117,23 @@ Startup.prototype.onError = function onError(err) {
   this.messenger(err, null, function() {
     process.kill(process.pid, 'SIGTERM');
   });
+};
+
+// `_timestampForPath` makes `toISOString()` timestamps safe for filenames.
+Startup.prototype._timestampForPath = function _timestampForPath() {
+  var result = core.logs.timestamp();
+  result = result.replace(':', '-');
+  return result;
+};
+
+// `_defaultMasterStart` what starts up the master process if you provide your own
+// `master` startup function on startup.
+Startup.prototype._defaultMasterStart = function _defaultMasterStart() {
+  var Master = require('./master');
+
+  var options = this.masterOptions || {};
+  options.graceful = options.graceful || new Graceful();
+
+  var master = new Master(options);
+  master.start();
 };

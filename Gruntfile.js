@@ -12,16 +12,4 @@ module.exports = function(grunt) {
 
   config.standardSetup();
   config.standardDefault();
-
-  grunt.loadNpmTasks('grunt-develop');
-  grunt.config('develop.test-server', {
-    file: 'test/start_cluster.js',
-    wait: 2000
-  });
-
-  grunt.registerTask('integration', [
-    'env',
-    'develop:test-server',
-    'mochacli:integration'
-  ]);
 };
