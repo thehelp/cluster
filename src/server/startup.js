@@ -74,16 +74,21 @@ Startup.prototype.start = function start() {
   }
 };
 
-// `setupLogs` sets up colorful, formatted console logging as well as a file appropriate
-// to the process type. Files are of the form 'worker-2014-04-28T03-04:03.232Z-32706.log'
-// in the `logs` directory.
+// `setupLogs` sets up `winston` with colorful, formatted console logging as well as a
+// file appropriate to the process type. Files are of the form
+// 'worker-2014-04-28T03-04:03.232Z-32706.log' in the `this.logsDir` directory.
 Startup.prototype.setupLogs = function setupLogs() {
+  core.logs.setupFile(this.getLogFilename());
+  core.logs.setupConsole();
+};
+
+// `getLogFilename` might still be useful if you're not using `winston` for your logging.
+Startup.prototype.getLogFilename = function getLogFilename() {
   var type = this.cluster.isMaster ? 'master' : 'worker';
-  core.logs.setupFile(path.join(
+  return path.join(
     this.logsDir,
     type + '-' + this._timestampForPath() + '-' + process.pid + '.log'
-  ));
-  core.logs.setupConsole();
+  );
 };
 
 // Helper methods
