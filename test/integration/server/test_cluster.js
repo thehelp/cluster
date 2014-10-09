@@ -9,7 +9,7 @@ var expect = require('thehelp-test').expect;
 var util = require('./util');
 
 describe('thehelp-cluster', function() {
-  var agent, child;
+  var agent, child, logFiles;
 
   before(function(done) {
     agent = supertest.agent('http://localhost:3000');
@@ -39,6 +39,12 @@ describe('thehelp-cluster', function() {
       }
 
       expect(files).to.have.length(2);
+
+      files = files.sort();
+      expect(files).to.have.deep.property('0').that.match(/master/);
+      expect(files).to.have.deep.property('1').that.match(/worker/);
+
+      logFiles = files;
 
       done();
     });
@@ -77,6 +83,13 @@ describe('thehelp-cluster', function() {
       }
 
       expect(files).to.have.length(3);
+
+      files = files.sort();
+      expect(files).to.have.deep.property('0', logFiles[0]);
+      expect(files).to.have.deep.property('1', logFiles[1]);
+      expect(files).to.have.deep.property('2').that.match(/worker/);
+
+      logFiles = files;
 
       done();
     });
@@ -132,6 +145,12 @@ describe('thehelp-cluster', function() {
       }
 
       expect(files).to.have.length(4);
+
+      files = files.sort();
+      expect(files).to.have.deep.property('0', logFiles[0]);
+      expect(files).to.have.deep.property('1', logFiles[1]);
+      expect(files).to.have.deep.property('2', logFiles[2]);
+      expect(files).to.have.deep.property('3').that.match(/worker/);
 
       done();
     });
