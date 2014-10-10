@@ -64,7 +64,8 @@ being serviced). The http server will be stopped, the error will be saved/sent v
 `this.messenger` and we'll start the process of checking to see if we can take down the
 process via `this._exit()`.
 
-Note: to be notified when this method is called, register for the 'shutdown' event:
+_Note: to be notified when this method is called, register for the 'shutdown' event
+(`Graceful` is an `EventEmitter`):_
 
 ```
 graceful.on('shutdown', function() {
