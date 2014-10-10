@@ -28,9 +28,12 @@ describe('hanging workers', function() {
     this.timeout(10000);
 
     child.on('close', function() {
-      expect(child).to.have.property('stdoutResult').that.match(/SIGINT/);
-      expect(child).to.have.property('stdoutResult')
-        .that.match(/Master passed all checks/);
+      expect(child).to.have.property('stdoutResult');
+
+      var stdout = child.stdoutResult;
+
+      expect(stdout).to.match(/SIGINT/);
+      expect(stdout).to.match(/Master passed all checks/);
 
       done();
     });

@@ -52,7 +52,7 @@ function Graceful(options) {
   this.cluster = options.cluster || cluster;
   this.log = options.log || winston;
 
-  this.logPrefix = this._getLogPrefix();
+  this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();
 
   Graceful.instance = this;
@@ -197,19 +197,6 @@ Graceful.prototype._finalLog = function _finalLog(type, message) {
 Graceful.prototype._die = function _die() {
   var code = this.error ? this.error.code || 1 : 0;
   this.process.exit(code);
-};
-
-// `_getLogPrefix` helps differentiate between the various master/worker processes.
-Graceful.prototype._getLogPrefix = function _getLogPrefix() {
-  var cluster = this.cluster;
-
-  if (cluster.worker) {
-    var id = cluster.worker.id;
-    return 'Worker #' + id;
-  }
-  else {
-    return 'Master';
-  }
 };
 
 // `_setupListeners` sets up some event wireups. We start the shutdown process when the

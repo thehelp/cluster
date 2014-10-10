@@ -1,6 +1,8 @@
 
 'use strict';
 
+var cluster = require('cluster');
+
 // `once` ensures that the provided function is only called once,
 exports.once = function once(fn) {
   var called = false;
@@ -12,3 +14,13 @@ exports.once = function once(fn) {
   };
 };
 
+// `getLogPrefix` helps differentiate between the various master/worker processes.
+exports.getLogPrefix = function getLogPrefix() {
+  if (cluster.worker) {
+    var id = cluster.worker.id;
+    return 'Worker #' + id;
+  }
+  else {
+    return 'Master';
+  }
+};

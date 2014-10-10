@@ -11,7 +11,9 @@ var path = require('path');
 
 var winston = require('winston');
 var core = require('thehelp-core');
+
 var Graceful = require('./graceful');
+var util = require('./util');
 
 /*
 The `constructor` requires only one parameter `worker`, a callback which
@@ -30,7 +32,7 @@ being called, and prevents any kind of automatic graceful shutdown.
 system: `info`, `warn` and `error` keys with the signature `function(string)`.
 */
 function Startup(options) {
-  /*jshint maxcomplexity: 10 */
+  /*jshint maxcomplexity: 11 */
 
   options = options || {};
 
@@ -41,6 +43,7 @@ function Startup(options) {
 
   this.log = options.log || winston;
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
+  this.logPrefix = util.getLogPrefix();
 
   this.masterOptions = options.masterOptions;
   this.master = options.master || this._defaultMasterStart.bind(this);
@@ -54,6 +57,7 @@ function Startup(options) {
   this.domain = domain.create();
   this.domain.on('error', this._onError.bind(this));
 
+  this.process = options.process || process;
   this.cluster = options.cluster || cluster;
 }
 
@@ -114,7 +118,7 @@ Startup.prototype._onError = function _onError(err) {
     return this.errorHandler(err);
   }
 
-  this.log.error('Top-level domain error, taking down process: ' +
+  this.log.error(this.logPrefix + ' top-level domain error, taking down process: ' +
     core.breadcrumbs.toString(err));
 
   if (Graceful.instance) {

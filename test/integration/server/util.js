@@ -10,6 +10,7 @@ var rmrf = require('rimraf');
 
 exports.logsDir = path.join(__dirname, '../../../logs');
 
+// Delete a directory recursively and recreate it
 exports.emptyDir = function emptyLogDir(dir, cb) {
   rmrf(dir, function(err) {
     if (err) {
@@ -20,7 +21,9 @@ exports.emptyDir = function emptyLogDir(dir, cb) {
   });
 };
 
-exports.startProcess = function(module, options) {
+// Start a forked node.js process, both capturing stdout/stderr and piping
+// them to this process's stdout/stderr.
+exports.startProcess = function(module) {
   var child = fork(module, {
     silent: true,
     stdio: 'pipe'
