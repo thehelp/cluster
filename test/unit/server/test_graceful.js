@@ -117,5 +117,41 @@ describe('Graceful', function() {
     });
   });
 
+  describe('#_exit', function() {
+    it('calls _finalLog if check functions never return', function(done) {
+      graceful.pollInterval = 50;
+      graceful.timeout = 175;
+      graceful.closed = true;
+      graceful.addCheck(function() {
+        return false;
+      });
+
+      graceful._finalLog = sinon.stub();
+      graceful._exit = sinon.spy(graceful._exit);
+
+      graceful._exit();
+
+      setTimeout(function() {
+        expect(graceful).to.have.deep.property('_exit.callCount', 4);
+        expect(graceful).to.have.deep.property('_finalLog.callCount', 1);
+
+        done();
+      }, 200);
+    });
+
+    it('calls _finalLog if check function returns', function() {
+      graceful.closed = true;
+
+      graceful._finalLog = sinon.stub();
+      graceful._exit = sinon.spy(graceful._exit);
+
+      graceful._exit();
+
+      expect(graceful).to.have.deep.property('_exit.callCount', 1);
+      expect(graceful).to.have.deep.property('_finalLog.callCount', 1);
+    });
+  });
+
+
 });
 

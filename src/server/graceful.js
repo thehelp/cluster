@@ -134,12 +134,7 @@ Graceful.prototype._exit = function _exit() {
   this.log.info('Calling all provided pre-exit check functions...');
 
   if (this.closed && this._check()) {
-    if (this.interval) {
-      clearInterval(this.interval);
-    }
-    if (this.timeout) {
-      clearTimeout(this.timeout);
-    }
+    _this._clearTimers();
     _this._finalLog('Passed all checks! Shutting down!');
   }
   else if (!this.interval) {
@@ -148,9 +143,21 @@ Graceful.prototype._exit = function _exit() {
     }, this.pollInterval);
 
     this.timeout = setTimeout(function() {
-      _this.timeout = null;
+      _this._clearTimers();
       _this._finalLog('Checks took too long. Killing process now!');
     }, this.timeout);
+  }
+};
+
+// `_clearTimers` properly gets rid of the timers created in `_exit()`
+Graceful.prototype._clearTimers = function _clearTimers() {
+  if (this.interval) {
+    clearInterval(this.interval);
+    this.interval = null;
+  }
+  if (this.timeout) {
+    clearTimeout(this.timeout);
+    this.timeout = null;
   }
 };
 
