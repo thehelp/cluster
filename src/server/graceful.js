@@ -52,6 +52,7 @@ function Graceful(options) {
   this.cluster = options.cluster || cluster;
   this.log = options.log || winston;
 
+  this.logPrefix = this._getLogPrefix();
   this._setupListeners();
 
   Graceful.instance = this;
@@ -82,7 +83,7 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
     this.closed = true;
     this.error = err;
 
-    this.log.warn('Gracefully shutting down!');
+    this.log.warn(this.logPrefix + ' gracefully shutting down!');
     this._sendError(err, info);
     this.emit('shutdown');
     this._exit();
@@ -136,11 +137,11 @@ Graceful.prototype._check = function _check() {
 Graceful.prototype._exit = function _exit() {
   var _this = this;
 
-  this.log.info('Calling all provided pre-exit check functions...');
+  this.log.info(this.logPrefix + ' calling all provided pre-exit check functions...');
 
   if (this.closed && this._check()) {
     _this._clearTimers();
-    _this._finalLog('info', 'Passed all checks! Shutting down!');
+    _this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
   }
   else if (!this.interval) {
     this.interval = setInterval(function() {
@@ -149,7 +150,7 @@ Graceful.prototype._exit = function _exit() {
 
     this.timeout = setTimeout(function() {
       _this._clearTimers();
-      _this._finalLog('warn', 'Checks took too long. Killing process now!');
+      _this._finalLog('warn', this.logPrefix + ' checks took too long. Killing process!');
     }, this.timeout);
   }
 };
@@ -196,6 +197,19 @@ Graceful.prototype._die = function _die() {
   this.process.exit(code);
 };
 
+// `_getLogPrefix` helps differentiate between the various master/worker processes.
+Graceful.prototype._getLogPrefix = function _getLogPrefix() {
+  var cluster = this.cluster;
+
+  if (cluster.worker) {
+    var id = cluster.worker.id;
+    return 'Worker #' + id;
+  }
+  else {
+    return 'Master';
+  }
+};
+
 // `_setupListeners` sets up some event wireups. We start the shutdown process when the
 // process gets a 'SIGTERM' signal, or when the master worker disconnects. And we log
 // on process exit.
@@ -208,20 +222,13 @@ Graceful.prototype._setupListeners = function _setupListeners() {
     _this.shutdown();
   });
 
-  if (cluster.worker) {
-    var id = cluster.worker.id;
+  process.on('exit', function(code) {
+    _this.log.warn(_this.logPrefix + ' about to exit with code', code);
+  });
 
+  if (cluster.worker) {
     cluster.worker.on('disconnect', function gracefulShutdown() {
       _this.shutdown();
-    });
-
-    process.on('exit', function(code) {
-      _this.log.warn('Worker #' + id +  ' about to exit with code', code);
-    });
-  }
-  else {
-    process.on('exit', function(code) {
-      _this.log.warn('About to exit with code:', code);
     });
   }
 };
