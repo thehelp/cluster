@@ -7,7 +7,7 @@
 var Master = require('./master');
 var Graceful = require('./graceful');
 var Startup = require('./startup');
-var DomainMiddleware = require('./domain_middleware');
+var GracefulExpress = require('./graceful_express');
 
 // The root object returned via `require()` is this function
 var start = function createStartupAndStart(options) {
@@ -17,9 +17,9 @@ var start = function createStartupAndStart(options) {
 };
 
 // The four main classes are available as keys on that main function.
+start.Startup = Startup;
 start.Master = Master;
 start.Graceful = Graceful;
-start.Startup = Startup;
-start.DomainMiddleware = DomainMiddleware;
+start.GracefulExpress = GracefulExpress;
 
 module.exports = start;

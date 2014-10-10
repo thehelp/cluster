@@ -14,14 +14,14 @@ var morgan = require('morgan');
 var tc = require('../src/server/index');
 
 var graceful = new tc.Graceful();
-var domainMiddleware = new tc.DomainMiddleware({
+var gracefulExpress = new tc.GracefulExpress({
   graceful: graceful
 });
 
 var app = express();
 
 app.use(morgan('combined'));
-app.use(domainMiddleware.middleware);
+app.use(gracefulExpress.middleware);
 
 var worker = cluster.isMaster ? 'n/a' : cluster.worker.id;
 app.use(function(req, res, next) {
@@ -69,6 +69,6 @@ app.use(function(err, req, res, next) {
 });
 
 var server = http.createServer(app);
-domainMiddleware.setServer(server);
+gracefulExpress.setServer(server);
 server.listen(3000);
 winston.warn('Worker listening on port 3000');
