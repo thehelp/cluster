@@ -12,6 +12,6 @@ cluster({
     spinTimeout: 100
   },
   worker: function() {
-    require('./start_server');
+    require('./end_to_end_server');
   }
 });

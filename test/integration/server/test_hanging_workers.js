@@ -13,11 +13,7 @@ describe('hanging workers', function() {
   before(function(done) {
     agent = supertest.agent('http://localhost:3000');
 
-    var module = path.join(__dirname, '../../scenarios/hanging_workers.js');
-    child = util.startProcess(module, {
-      silent: true,
-      stdio: ['pipe', 'pipe','pipe']
-    });
+    child = util.startProcess(path.join(__dirname, '../../scenarios/hanging_workers.js'));
     setTimeout(done, 1000);
   });
 

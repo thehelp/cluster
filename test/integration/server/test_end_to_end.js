@@ -8,7 +8,7 @@ var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
 
-describe('thehelp-cluster', function() {
+describe('end-to-end', function() {
   var agent, child, logFiles;
 
   before(function(done) {
@@ -19,7 +19,9 @@ describe('thehelp-cluster', function() {
         throw err;
       }
 
-      child = util.startProcess(path.join(__dirname, '../../scenarios/start_cluster.js'));
+      child = util.startProcess(
+        path.join(__dirname, '../../scenarios/end_to_end_cluster.js'));
+
       setTimeout(done, 1000);
     });
   });

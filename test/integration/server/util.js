@@ -21,7 +21,10 @@ exports.emptyDir = function emptyLogDir(dir, cb) {
 };
 
 exports.startProcess = function(module, options) {
-  var child = fork(module, options);
+  var child = fork(module, {
+    silent: true,
+    stdio: 'pipe'
+  });
 
   if (child.stdout) {
     child.stdoutResult = '';
@@ -33,7 +36,7 @@ exports.startProcess = function(module, options) {
   if (child.stderr) {
     child.stderrResult = '';
     child.stderr.on('data', function(data) {
-      process.stderrResult.write(data.toString());
+      process.stderr.write(data.toString());
       child.stderrResult += data;
     });
   }
