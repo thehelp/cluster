@@ -144,11 +144,11 @@ Graceful.prototype._exit = function _exit() {
     this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
   }
   else if (!this.interval) {
-    this.interval = setInterval(function() {
+    this.interval = setInterval(function tryAgain() {
       _this._exit();
     }, this.pollInterval);
 
-    this.timeout = setTimeout(function() {
+    this.timeout = setTimeout(function forceKill() {
       _this._clearTimers();
       _this._finalLog('warn', _this.logPrefix + ' checks took too long. ' +
         'Killing process now!');

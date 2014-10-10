@@ -67,11 +67,11 @@ Master.prototype.setGraceful = function setGraceful(graceful) {
   if (graceful) {
     this.graceful = graceful;
 
-    this.graceful.on('shutdown', function() {
+    this.graceful.on('shutdown', function stopWorkers() {
       _this.shutdown();
     });
 
-    this.graceful.addCheck(function() {
+    this.graceful.addCheck(function areWorkersActive() {
       return !_this.workersActive;
     });
   }
@@ -97,13 +97,13 @@ Master.prototype.stop = function stop(cb) {
   this.closed = true;
   this._sendToAll('SIGTERM');
 
-  var timeout = setTimeout(function() {
+  var timeout = setTimeout(function forceKill() {
     timeout = null;
     winston.warn('Shutdown delayed; sending SIGINT to all remaining workers...');
     _this._sendToAll('SIGINT');
   }, _this.killTimeout);
 
-  var interval = setInterval(function() {
+  var interval = setInterval(function checkAndReturn() {
     if (!Object.keys(_this.cluster.workers).length) {
 
       clearInterval(interval);
