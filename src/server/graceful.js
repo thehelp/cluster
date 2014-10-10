@@ -140,8 +140,8 @@ Graceful.prototype._exit = function _exit() {
   this.log.info(this.logPrefix + ' calling all provided pre-exit check functions...');
 
   if (this.closed && this._check()) {
-    _this._clearTimers();
-    _this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
+    this._clearTimers();
+    this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
   }
   else if (!this.interval) {
     this.interval = setInterval(function() {
