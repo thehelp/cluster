@@ -28,6 +28,22 @@ describe('Graceful', function() {
     });
   });
 
+  describe('#shutdown', function() {
+    it('doesn\'t call _sendError or _exit when called more than once', function() {
+      graceful._sendError = sinon.stub();
+      graceful._exit = sinon.spy();
+      graceful.on('shutdown', function() {
+        graceful.shutdown();
+      });
+
+      graceful.shutdown();
+      graceful.shutdown();
+
+      expect(graceful).to.have.deep.property('_sendError.callCount', 1);
+      expect(graceful).to.have.deep.property('_exit.callCount', 1);
+    });
+  });
+
   describe('#_sendError', function() {
     it('doesn\'t call messenger if err is falsey', function() {
       graceful.messenger = sinon.stub();
@@ -37,7 +53,6 @@ describe('Graceful', function() {
       expect(graceful).to.have.deep.property('messenger.callCount', 0);
       expect(graceful).to.have.property('sending', false);
     });
-
 
     it('sets sending to true before calling messenger', function() {
       graceful.messenger = sinon.stub();
