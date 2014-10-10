@@ -9,7 +9,6 @@ var cluster = require('cluster');
 var domain = require('domain');
 var path = require('path');
 
-var winston = require('winston');
 var core = require('thehelp-core');
 
 var Graceful = require('./graceful');
@@ -41,7 +40,7 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
-  this.log = options.log || winston;
+  this.log = options.log || require('winston');
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
   this.logPrefix = util.getLogPrefix();
 

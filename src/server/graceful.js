@@ -9,8 +9,6 @@ var cluster = require('cluster');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
-var winston = require('winston');
-
 var localUtil = require('./util');
 
 /*
@@ -50,7 +48,7 @@ function Graceful(options) {
 
   this.process = options.process || process;
   this.cluster = options.cluster || cluster;
-  this.log = options.log || winston;
+  this.log = options.log || require('winston');
 
   this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();

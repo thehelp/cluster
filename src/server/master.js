@@ -9,8 +9,6 @@
 var cluster = require('cluster');
 var os = require('os');
 
-var winston = require('winston');
-
 /*
 The `constructor` has no required parameters.   Optional parameters:
 
@@ -43,6 +41,7 @@ function Master(options) {
   this.cluster = options.cluster || cluster;
   this.cluster.on('disconnect', this._restartWorker.bind(this));
 
+  this.log = options.log || require('winston');
   this.setGraceful(options.graceful);
 
   Master.instance = this;
@@ -52,7 +51,7 @@ module.exports = Master;
 
 // `start` gets all the requested worker processes started
 Master.prototype.start = function start() {
-  winston.warn('Starting master');
+  this.log.warn('Starting master');
   for (var i = 0; i < this.numberWorkers; i = i + 1) {
     this._startWorker();
   }
@@ -96,14 +95,14 @@ Master.prototype.shutdown = function shutdown() {
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
 Master.prototype.stop = function stop(cb) {
   var _this = this;
-  winston.warn('Stopping all workers with SIGTERM...');
+  this.log.warn('Stopping all workers with SIGTERM...');
 
   this.closed = true;
   this._sendToAll('SIGTERM');
 
   var timeout = setTimeout(function forceKill() {
     timeout = null;
-    winston.warn('Shutdown delayed; sending SIGINT to all remaining workers...');
+    _this.log.warn('Shutdown delayed; sending SIGINT to all remaining workers...');
     _this._sendToAll('SIGINT');
   }, _this.killTimeout);
 
@@ -115,11 +114,11 @@ Master.prototype.stop = function stop(cb) {
         clearTimeout(timeout);
       }
 
-      winston.info('All workers gone.');
+      _this.log.info('All workers gone.');
       return cb();
     }
     else {
-      winston.info('Still some workers alive...');
+      _this.log.info('Still some workers alive...');
     }
   }, this.pollInterval);
 };
@@ -155,22 +154,22 @@ Master.prototype._restartWorker = function _restartWorker(worker) {
     var delta = now.getTime() - start.getTime();
 
     if (data && delta < this.spinTimeout) {
-      winston.error('Worker #' + worker.id + ' (pid: ' + pid +
+      this.log.error('Worker #' + worker.id + ' (pid: ' + pid +
         ') died after less than spin timeout of ' + this.spinTimeout + 'ms. Waiting ' +
         'for ' + this.delayStart + 'ms before starting replacement');
 
       setTimeout(function() {
-        winston.warn('Starting delayed replacement for worker #' + worker.id);
+        _this.log.warn('Starting delayed replacement for worker #' + worker.id);
         _this._startWorker();
       }, this.delayStart);
     }
     else {
-      winston.warn('Starting replacement for worker #' + worker.id);
+      this.log.warn('Starting replacement for worker #' + worker.id);
       this._startWorker();
     }
 
     if (Object.keys(this.cluster.workers).length === 0) {
-      winston.error('No workers currently running!');
+      this.log.error('No workers currently running!');
     }
   }
 };
