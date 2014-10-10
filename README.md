@@ -2,7 +2,7 @@
 
 This project is designed to make your node applications more reliable, using two base node technologies: [`domain`](http://nodejs.org/api/domain.html) and [`cluster`](http://nodejs.org/api/cluster.html).
 
-`domain` is used to ensure that the process doesn't immediately go down when an unhandled exception is thrown. The `DomainMiddleware` class captures the error, records it, and then starts the process of gracefully shutting down the process, ensuring that every in-progress request is completed.
+`domain` is used to ensure that the process doesn't immediately go down when an unhandled exception is thrown. The `GracefulExpress` class captures the error, records it, and then starts the process of gracefully shutting down the process, ensuring that every in-progress request is completed.
 
 `cluster` is used to manage multiple worker processes. The `Master` class creates the requested number of workers, restarting them as they crash, watching for worker processes crashing too quickly.
 
@@ -10,15 +10,16 @@ This project is designed to make your node applications more reliable, using two
 
 ## Setup
 
-There's just one optional environment variable, which overrides the default number of workers, `os.cpus().length`. It's a good idea to set this, because many VPS instances report far too many CPUs.
+There are two optional environment variables:
 
 ```
-"THEHELP_NUMBER_WORKERS": "1"
+"THEHELP_NUMBER_WORKERS": "1",
+"THEHELP_LOGS_DIR": "logs directory; defaults to ./logs/"
 ```
 
-By default, both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
+_Note: It's a good idea to set the number of workers, because the default is `os.cpus().length`, and most VPS instances report far too many CPUs._
 
-Or you can use the classes a little more manually, and provide `messenger` callbacks of the form `function(err, options, cb)` on construction of both of these classes. You'll still need to set the environment variables; we prefer to show you an error on startup of the process vs. when you have an error. :0)
+By default, both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use [`thehelp-last-ditch`](https://github.com/thehelp/last-ditch) to save exceptions. Take a look at the documentation for that - you'll likely want to set the `THEHELP_CRASH_LOG` environment variable, and you might consider turning on SMS/email notifcations.
 
 ## Usage
 
@@ -27,21 +28,21 @@ Your worker processes should be set up like this to enable shutting down the ser
 ```
 var cluster = require('thehelp-cluster');
 var graceful = new cluster.Graceful();
-var domainMiddleware = new cluster.DomainMiddleware({
+var gracefulExpress = new cluster.GracefulExpress({
   graceful: graceful
 });
 
 var app = express();
 
 // this should be installed before any of your processing
-app.use(domainMiddleware.middleware);
+app.use(gracefulExpress.middleware);
 
-// add more middleware, endpoints
+// ...add more middleware, endpoints...
 
-// create http server manually to make available to DomainMiddleware
+// create http server manually to make available to GracefulExpress
 var http = require('http');
 var server = http.createServer(app);
-domainMiddleware.setServer(server);
+gracefulExpress.setServer(server);
 
 // start server
 server.listen(PORT);
@@ -59,7 +60,7 @@ cluster({
 });
 ```
 
-A top-level domain will be created both for master and worker processes. If you don't provide a `master` callback, an instance of the `Master` class will be created for your master process to manage your worker processes.
+A top-level domain will be created both for master and worker processes. If you don't provide a `master` callback, an instance of the `Master` class will be automatically created for your master process to manage your worker processes. A separate log file will be set up for each process.
 
 ## Advanced
 
@@ -76,7 +77,9 @@ graceful.addCheck(function() {
 })
 ```
 
-Take a look at how `Master` and `DomainMiddleware` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
+Take a look at how `Master` and `GracefulExpress` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
+
+Most classes also provide a deeper level of customization. For example, instead of using the default configuration of `thehelp-last-ditch`, you can provide `messenger` callbacks of the form `function(err, options, cb)`. Or, instead of letting these classes log with `winston`, you can provide `log` objecst with `info`/`warn`/`error` functions to pipe output to your own logging system.
 
 ## Development
 
