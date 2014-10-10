@@ -9,6 +9,7 @@ var cluster = require('cluster');
 var domain = require('domain');
 var path = require('path');
 
+var winston = require('winston');
 var core = require('thehelp-core');
 var Graceful = require('./graceful');
 
@@ -25,7 +26,8 @@ default master start callback
 being called, and prevents any kind of automatic graceful shutdown.
 + `messenger` -  a `function(err, options, cb)`, defaulting to
 `thehelp-last-ditch`. Passed any top-level exceptions encountered.
-
++ `log` - an object that looks like `winston`, allowing you to use your own logging
+system: `info`, `warn` and `error` keys with the signature `function(string)`.
 */
 function Startup(options) {
   /*jshint maxcomplexity: 10 */
@@ -37,6 +39,7 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
+  this.log = options.log || winston;
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
 
   this.masterOptions = options.masterOptions;
@@ -102,12 +105,17 @@ Lastly `errorHandler` can be specified for custom error-handling logic, superced
 other behavior in this method.
 */
 Startup.prototype._onError = function _onError(err) {
+  var _this = this;
+
   //Don't want the entire domain object to pollute the log entry for this error
   delete err.domain;
 
   if (this.errorHandler) {
     return this.errorHandler(err);
   }
+
+  this.log.error('Top-level domain error, taking down process: ' +
+    core.breadcrumbs.toString(err));
 
   if (Graceful.instance) {
     return Graceful.instance.shutdown(err);
