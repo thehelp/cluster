@@ -10,6 +10,11 @@ var Graceful = require('../../../src/server/graceful');
 describe('Graceful', function() {
   var graceful;
 
+  before(function() {
+    // we create a lot of Graceful objects, all EventEmitters - this suppresses a warning
+    process.setMaxListeners(0);
+  });
+
   beforeEach(function() {
     graceful = new Graceful();
   });
@@ -26,13 +31,26 @@ describe('Graceful', function() {
 
       expect(Graceful).to.have.property('instance').that.deep.equal(graceful);
     });
+
+    it('provided messenger is set', function() {
+      var messenger = sinon.stub();
+      graceful = new Graceful({
+        messenger: messenger
+      });
+      expect(graceful).to.have.deep.property('messenger', messenger);
+    });
+
+    it('sets up last ditch if no messenger provided', function() {
+      graceful = new Graceful();
+      expect(graceful).to.have.deep.property('messenger', require('thehelp-last-ditch'));
+    });
   });
 
   describe('#shutdown', function() {
     it('doesn\'t call _sendError or _exit when called more than once', function() {
       graceful._sendError = sinon.stub();
       graceful._exit = sinon.spy();
-      graceful.on('shutdown', function() {
+      graceful.once('shutdown', function() {
         graceful.shutdown();
       });
 
