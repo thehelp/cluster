@@ -151,7 +151,7 @@ Master.prototype._restartWorker = function _restartWorker(worker) {
     var delta = now.getTime() - start.getTime();
 
     if (data && delta < this.spinTimeout) {
-      winston.error('Worker ' + worker.id + ' (pid: ' + pid +
+      winston.error('Worker #' + worker.id + ' (pid: ' + pid +
         ') died after less than spin timeout of ' + this.spinTimeout + 'ms. Waiting ' +
         'for ' + this.delayStart + 'ms before starting replacement');
 
