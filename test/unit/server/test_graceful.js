@@ -19,6 +19,12 @@ describe('Graceful', function() {
     graceful = new Graceful();
   });
 
+  afterEach(function() {
+    graceful.log = {
+      warn: sinon.stub()
+    };
+  });
+
   describe('constructor', function() {
     it('sets right defaults', function() {
       expect(graceful).to.have.property('checks').that.has.length(1);
@@ -152,6 +158,24 @@ describe('Graceful', function() {
     });
   });
 
+  describe('#_finalLog', function() {
+    it('calls _die when log calls callback', function(done) {
+      graceful.log = {
+        info: sinon.stub().yields()
+      };
+      graceful._die = done;
 
+      graceful._finalLog('info', 'log string');
+    });
+
+    it('calls _die if log never calls callback', function(done) {
+      graceful.log = {
+        info: sinon.stub()
+      };
+      graceful._die = done;
+
+      graceful._finalLog('info', 'log string');
+    });
+  });
 });
 

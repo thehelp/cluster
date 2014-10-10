@@ -15,6 +15,7 @@ break through still-active keepalive connections keeping sockets open, preventin
 'use strict';
 
 var domain = require('domain');
+var util = require('./util');
 
 /*
 The `constructor` has some optional parameters:
@@ -92,7 +93,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   d.add(res);
 
   // bind to all three to be completely sure; handler only called once
-  var finish = this._once(function() {
+  var finish = util.once(function() {
     _this._onFinish(req);
   });
   res.on('finish', finish);
@@ -167,15 +168,4 @@ GracefulExpress.prototype._onStart = function _onStart() {
 // `_onFinish` decrements the in-progress request count.
 GracefulExpress.prototype._onFinish = function _onFinish() {
   this.activeRequests -= 1;
-};
-
-// `_once` ensures that the provided function is only called once,
-GracefulExpress.prototype._once = function _once(fn) {
-  var called = false;
-  return function() {
-    if (!called) {
-      called = true;
-      fn.apply(this, Array.prototype.slice.call(arguments, 0));
-    }
-  };
 };

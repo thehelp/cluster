@@ -11,6 +11,8 @@ var util = require('util');
 
 var winston = require('winston');
 
+var localUtil = require('./util');
+
 /*
 The `constructor` has no required parameters. Optional parameters:
 
@@ -20,10 +22,12 @@ registered 'ready to stop process' check functions
 process down forcefully
 + `messenger` - a `function(err, options, cb)` that gets the information supplied to the
 `shutdown()` method. Defaults to `thehelp-last-ditch`.
-+ `server` - the http server to be shut down. Usually not provided on construction because
-`this.middleware` should be installed as a global express handler, and the http server
-will not have been created it. Use `setServer()` instead.
++ `log` - an object that looks like `winston`, allowing you to use your own logging
+system: `info`, `warn` and `error` keys with the signature `function(string)`.
 
+_Note: it's recommended to create an instance of this class once per process, since it
+listens for a number of process-level events, making itself the handler for them. See
+`_setupListeners()` below._
 */
 function Graceful(options) {
   /*jshint maxcomplexity: 8 */
@@ -33,7 +37,7 @@ function Graceful(options) {
   this.closed = false;
 
   this.pollInterval = options.pollInterval || 250;
-  this.timeout = options.pollInterval || 5 * 1000;
+  this.timeout = options.timeout || 5 * 1000;
   this.messenger = options.messenger || require('thehelp-last-ditch');
 
   this.checks = [];
@@ -136,7 +140,7 @@ Graceful.prototype._exit = function _exit() {
 
   if (this.closed && this._check()) {
     _this._clearTimers();
-    _this._finalLog('Passed all checks! Shutting down!');
+    _this._finalLog('info', 'Passed all checks! Shutting down!');
   }
   else if (!this.interval) {
     this.interval = setInterval(function() {
@@ -145,7 +149,7 @@ Graceful.prototype._exit = function _exit() {
 
     this.timeout = setTimeout(function() {
       _this._clearTimers();
-      _this._finalLog('Checks took too long. Killing process now!');
+      _this._finalLog('warn', 'Checks took too long. Killing process now!');
     }, this.timeout);
   }
 };
@@ -170,17 +174,19 @@ Unfortunately, because sometimes winston gets a bit messed up after unhandled ex
 we also set a timer to make sure to take process down even if winston doesn't call the
 callback.
 */
-Graceful.prototype._finalLog = function _finalLog(message) {
+Graceful.prototype._finalLog = function _finalLog(type, message) {
   var _this = this;
 
-  this.log.info(message, function(err, level, msg, meta) {
-    /*jshint unused: false */
+  var die = localUtil.once(function() {
     _this._die();
   });
 
-  setTimeout(function() {
-    _this._die();
-  }, 1000);
+  this.log[type](message, function(err, level, msg, meta) {
+    /*jshint unused: false */
+    die();
+  });
+
+  setTimeout(die, 250);
 };
 
 // `_die` calls `process._exit()` with the right error code based on `this.error` (set in
