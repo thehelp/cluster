@@ -114,7 +114,7 @@ Startup.prototype._onError = function _onError(err) {
   }
 
   this.messenger(err, null, function() {
-    process.kill(process.pid, 'SIGTERM');
+    _this.process.kill(_this.process.pid, 'SIGTERM');
   });
 };
 

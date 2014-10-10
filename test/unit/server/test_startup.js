@@ -55,7 +55,7 @@ describe('Startup', function() {
       expect(startup).to.have.deep.property('messenger.callCount', 0);
     });
 
-    it('only calls messenger if Graceful.instance unavailable', function() {
+    it('calls Graceful.instance.shutdown() if available', function() {
       Graceful.instance = {
         shutdown: sinon.stub()
       };
@@ -65,6 +65,20 @@ describe('Startup', function() {
       expect(Graceful).to.have.deep.property('instance.shutdown.callCount', 1);
       expect(startup).to.have.deep.property('messenger.callCount', 0);
     });
+
+    it('only calls messenger() and process.kill if nothing else available', function() {
+      Graceful.instance = null;
+      startup.messenger = sinon.stub().yields();
+      startup.process = {
+        kill: sinon.stub()
+      };
+
+      startup._onError(new Error('test error'));
+
+      expect(startup).to.have.deep.property('messenger.callCount', 1);
+      expect(startup).to.have.deep.property('process.kill.callCount', 1);
+    });
+
   });
 
 });
