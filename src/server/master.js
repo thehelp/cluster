@@ -10,7 +10,6 @@ var cluster = require('cluster');
 var os = require('os');
 
 var winston = require('winston');
-var _ = require('lodash');
 
 /*
 The `constructor` has no required parameters.   Optional parameters:
@@ -28,8 +27,6 @@ for a more decisive kill
 function Master(options) {
   /*jshint maxcomplexity: 10 */
 
-  _.bindAll(this);
-
   options = options || {};
 
   this.spinTimeout = options.spinTimeout || 5000;
@@ -42,7 +39,7 @@ function Master(options) {
   this.closed = false;
 
   this.cluster = options.cluster || cluster;
-  this.cluster.on('disconnect', this.restartWorker);
+  this.cluster.on('disconnect', this._restartWorker.bind(this));
 
   this.setGraceful(options.graceful);
 
@@ -56,24 +53,14 @@ Master.prototype.start = function start() {
   winston.warn('Starting master');
   var workers = this.numberWorkers || os.cpus().length;
   for (var i = 0; i < workers; i = i + 1) {
-    this.startWorker();
+    this._startWorker();
   }
 };
 
-// `gracefulShutdown` uses `stop` to kill all workers, then shuts down this process as
-// soon as no more workers are alive.
-Master.prototype.shutdown = function shutdown() {
-  var _this = this;
-
-  winston.warn('Gracefully shutting down master!');
-
-  this.workersActive = true;
-  this.stop(function() {
-    _this.workersActive = false;
-  });
-};
-
-// `setGraceful` is a way to provide the reference after construction.
+// `setGraceful` is a way to provide the reference after construction. We register with
+// `Graceful` to shutdown when it starts the shutdown process, as well as to let it know
+// when workers are still alive. With this in place, you won't need to call `shutdown()`
+// or `stop()` yourself.
 Master.prototype.setGraceful = function setGraceful(graceful) {
   var _this = this;
 
@@ -90,31 +77,40 @@ Master.prototype.setGraceful = function setGraceful(graceful) {
   }
 };
 
-// Helper functions
-// ========
+// `shutdown` uses `stop` to kill all workers, then sets `this.workersActive` back to
+// false so `Graceful` knows that it's safe to take the process down.
+Master.prototype.shutdown = function shutdown() {
+  var _this = this;
+
+  this.workersActive = true;
+  this.stop(function() {
+    _this.workersActive = false;
+  });
+};
 
 // `stop` kills all worker processes, first using a 'SIGTERM' signal to allow for graceful
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
 Master.prototype.stop = function stop(cb) {
   var _this = this;
-  winston.warn('Stopping all workers');
+  winston.warn('Stopping all workers with SIGTERM...');
 
   this.closed = true;
+  this._sendToAll('SIGTERM');
 
-  _(cluster.workers).values().forEach(function(worker) {
-    var pid = worker.process.pid;
-    process.kill(pid, 'SIGTERM');
-
-    setTimeout(function() {
-      if (_this.workers[pid]) {
-        process.kill(pid, 'SIGINT');
-      }
-    }, _this.killTimeout);
-  });
+  var timeout = setTimeout(function() {
+    timeout = null;
+    winston.warn('Shutdown delayed; sending SIGINT to all remaining workers...');
+    _this._sendToAll('SIGINT');
+  }, _this.killTimeout);
 
   var interval = setInterval(function() {
-    if (!Object.keys(cluster.workers).length) {
+    if (!Object.keys(_this.cluster.workers).length) {
+
       clearInterval(interval);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+
       winston.info('All workers gone.');
       return cb();
     }
@@ -122,12 +118,14 @@ Master.prototype.stop = function stop(cb) {
       winston.info('Still some workers alive...');
     }
   }, this.pollInterval);
-
 };
 
-// `startWorker` does a basic `cluster.fork()`, saving the result and the current time to
+// Helper functions
+// ========
+
+// `_startWorker` does a basic `cluster.fork()`, saving the result and the current time to
 // `this.workers`.
-Master.prototype.startWorker = function startWorker() {
+Master.prototype._startWorker = function _startWorker() {
   var worker = this.cluster.fork();
   var pid = worker.process.pid;
   this.workers[pid] = {
@@ -137,10 +135,10 @@ Master.prototype.startWorker = function startWorker() {
   };
 };
 
-// `restartWorker` first eliminates the dead worker from `this.workers`, then either
+// `_restartWorker` first eliminates the dead worker from `this.workers`, then either
 // starts a new worker immediately, or after a delay of `this.delayStart` if the process
 // wasn't alive for longer than `this.spinTimeout`.
-Master.prototype.restartWorker = function restartWorker(worker) {
+Master.prototype._restartWorker = function _restartWorker(worker) {
   var _this = this;
 
   var pid = worker.process.pid;
@@ -158,17 +156,32 @@ Master.prototype.restartWorker = function restartWorker(worker) {
         'for ' + this.delayStart + 'ms before starting replacement');
 
       setTimeout(function() {
-        winston.warn('Starting delayed replacement worker');
-        _this.startWorker();
+        winston.warn('Starting delayed replacement for worker #' + worker.id + ')');
+        _this._startWorker();
       }, this.delayStart);
     }
     else {
-      winston.warn('Starting replacement worker!');
-      this.startWorker();
+      winston.warn('Starting replacement for worker #' + worker.id + ')');
+      this._startWorker();
     }
 
-    if (Object.keys(cluster.workers).length === 0) {
+    if (Object.keys(this.cluster.workers).length === 0) {
       winston.error('No workers currently running!');
+    }
+  }
+};
+
+// `_sendToAll` sends the provided signal to each worker still listed in `this.workers`
+Master.prototype._sendToAll = function _sendToAll(signal) {
+  var keys = Object.keys(this.cluster.workers);
+
+  for (var i = 0, max = keys.length; i < max; i += 1) {
+    var key = keys[i];
+    var worker = this.cluster.workers[key];
+    var pid = worker.process.pid;
+
+    if (this.workers[pid]) {
+      process.kill(pid, signal);
     }
   }
 };

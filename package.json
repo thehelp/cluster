@@ -4,7 +4,6 @@
   "main": "src/server/index.js",
 
   "dependencies": {
-    "lodash": "2.x",
     "winston": "0.7.x",
     "thehelp-core": "2.x",
     "thehelp-last-ditch": "1.x"
