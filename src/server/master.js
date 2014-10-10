@@ -33,7 +33,8 @@ function Master(options) {
   this.delayStart = options.delayStart || 60 * 1000;
   this.pollInterval = options.pollInterval || 500;
   this.killTimeout = options.killTimeout || 7000;
-  this.numberWorkers = options.numberWorkers || parseInt(process.env.NUMBER_WORKERS) || 0;
+  this.numberWorkers =
+    options.numberWorkers || parseInt(process.env.THEHELP_NUMBER_WORKERS) || 0;
 
   this.workers = {};
   this.closed = false;

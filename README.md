@@ -10,10 +10,10 @@ This project is designed to make your node applications more reliable, using two
 
 ## Setup
 
-There's just one optional environment variable:
+There's just one optional environment variable, which overrides the default number of workers, `os.cpus().length`. It's a good idea to set this, because many VPS instances report far too many CPUs.
 
 ```
-"NUMBER_WORKERS": "1" // overrides the default, os.cpus().length
+"THEHELP_NUMBER_WORKERS": "1"
 ```
 
 By default, both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use `thehelp-last-ditch` to save/send exceptions. Take a look at the documentation for that - it has a number of required environment variables.
