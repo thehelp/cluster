@@ -156,12 +156,12 @@ Master.prototype._restartWorker = function _restartWorker(worker) {
         'for ' + this.delayStart + 'ms before starting replacement');
 
       setTimeout(function() {
-        winston.warn('Starting delayed replacement for worker #' + worker.id + ')');
+        winston.warn('Starting delayed replacement for worker #' + worker.id);
         _this._startWorker();
       }, this.delayStart);
     }
     else {
-      winston.warn('Starting replacement for worker #' + worker.id + ')');
+      winston.warn('Starting replacement for worker #' + worker.id);
       this._startWorker();
     }
 
