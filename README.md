@@ -64,12 +64,12 @@ A top-level domain will be created both for master and worker processes. If you 
 
 ## Advanced
 
-In more complex scenarios, you can register for shutdown notifications and delay shutdown like this:
+In more complex scenarios, say for example you're responding to incoming socket.io messages, you can register for shutdown notifications and delay shutdown like this:
 
 ```
 var graceful = new cluster.Graceful();
 graceful.on('shutdown', function() {
-  // start shutting down
+  // start shutting down all active socket.io connections
 });
 graceful.addCheck(function() {
   // return true if ready to shut down
@@ -79,7 +79,7 @@ graceful.addCheck(function() {
 
 Take a look at how `Master` and `GracefulExpress` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
 
-Most classes also provide a deeper level of customization. For example, instead of using the default configuration of `thehelp-last-ditch`, you can provide `messenger` callbacks of the form `function(err, options, cb)`. Or, instead of letting these classes log with `winston`, you can provide `log` objecst with `info`/`warn`/`error` functions to pipe output to your own logging system.
+The exposed four classes also provide a deeper level of customization. For example, instead of using the default configuration of `thehelp-last-ditch`, you can provide `messenger` callbacks of the form `function(err, options, cb)`. Or, instead of letting these classes log with `winston`, you can provide `log` objecst with `info`/`warn`/`error` functions to pipe output to your own logging system.
 
 ## Development
 
