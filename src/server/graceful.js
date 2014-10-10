@@ -150,7 +150,9 @@ Graceful.prototype._exit = function _exit() {
 
     this.timeout = setTimeout(function() {
       _this._clearTimers();
-      _this._finalLog('warn', this.logPrefix + ' checks took too long. Killing process!');
+      _this._finalLog('warn', _this.logPrefix + ' checks took too long. ' +
+        'Killing process now!');
+
     }, this.timeout);
   }
 };
