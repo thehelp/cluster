@@ -33,8 +33,9 @@ function Master(options) {
   this.delayStart = options.delayStart || 60 * 1000;
   this.pollInterval = options.pollInterval || 500;
   this.killTimeout = options.killTimeout || 7000;
-  this.numberWorkers =
-    options.numberWorkers || parseInt(process.env.THEHELP_NUMBER_WORKERS) || 0;
+  this.numberWorkers = options.numberWorkers ||
+    parseInt(process.env.THEHELP_NUMBER_WORKERS) ||
+    os.cpus().length;
 
   this.workers = {};
   this.closed = false;
@@ -52,8 +53,7 @@ module.exports = Master;
 // `start` gets all the requested worker processes started
 Master.prototype.start = function start() {
   winston.warn('Starting master');
-  var workers = this.numberWorkers || os.cpus().length;
-  for (var i = 0; i < workers; i = i + 1) {
+  for (var i = 0; i < this.numberWorkers; i = i + 1) {
     this._startWorker();
   }
 };
