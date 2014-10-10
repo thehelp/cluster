@@ -44,11 +44,6 @@ function Master(options) {
   this.cluster = options.cluster || cluster;
   this.cluster.on('disconnect', this.restartWorker);
 
-  this.process = options.process || process;
-  this.process.on('exit', function(code) {
-    winston.warn('Master about to exit with code:', code);
-  });
-
   this.setGraceful(options.graceful);
 
   Master.instance = this;

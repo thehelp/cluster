@@ -26,38 +26,29 @@ will not have been created it. Use `setServer()` instead.
 
 */
 function Graceful(options) {
-  /*jshint maxcomplexity: 9 */
+  /*jshint maxcomplexity: 8 */
 
   options = options || {};
 
-  this.checks = [];
   this.closed = false;
 
   this.pollInterval = options.pollInterval || 250;
   this.timeout = options.pollInterval || 5 * 1000;
   this.messenger = options.messenger || require('thehelp-last-ditch');
 
-  var _this = this;
+  this.checks = [];
   this.sending = false;
+
+  var _this = this;
   this.addCheck(function areWeSending() {
     return _this.sending === false;
   });
 
   this.process = options.process || process;
-  this.process.on('SIGTERM', function gracefulShutdown() {
-    _this.shutdown();
-  });
-
   this.cluster = options.cluster || cluster;
-  if (this.cluster.worker) {
-    this.cluster.worker.on('disconnect', function gracefulShutdown() {
-      _this.shutdown();
-    });
+  this.log = options.log || winston;
 
-    this.process.on('_exit', function(code) {
-      winston.warn('Worker about to _exit with code', code);
-    });
-  }
+  this._setupListeners();
 
   Graceful.instance = this;
 }
@@ -86,7 +77,7 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
     this.closed = true;
     this.error = err;
 
-    winston.warn('Gracefully shutting down!');
+    this.log.warn('Gracefully shutting down!');
     this._sendError(err, info);
     this.emit('shutdown');
     this._exit();
@@ -117,7 +108,7 @@ Graceful.prototype._sendError = function _sendError(err, info) {
   }
 };
 
-// `_check` returns true if all check methods returned true.
+// `_check` returns true if all registered check methods returned true.
 Graceful.prototype._check = function _check() {
   if (!this.checks || !this.checks.length) {
     return true;
@@ -140,7 +131,7 @@ Graceful.prototype._check = function _check() {
 Graceful.prototype._exit = function _exit() {
   var _this = this;
 
-  winston.info('Calling all provided pre-exit check functions...');
+  this.log.info('Calling all provided pre-exit check functions...');
 
   if (this.closed && this._check()) {
     if (this.interval) {
@@ -174,7 +165,7 @@ callback.
 Graceful.prototype._finalLog = function _finalLog(message) {
   var _this = this;
 
-  winston.info(message, function(err, level, msg, meta) {
+  this.log.info(message, function(err, level, msg, meta) {
     /*jshint unused: false */
     _this._die();
   });
@@ -189,4 +180,34 @@ Graceful.prototype._finalLog = function _finalLog(message) {
 Graceful.prototype._die = function _die() {
   var code = this.error ? this.error.code || 1 : 0;
   this.process.exit(code);
+};
+
+// `_setupListeners` sets up some event wireups. We start the shutdown process when the
+// process gets a 'SIGTERM' signal, or when the master worker disconnects. And we log
+// on process exit.
+Graceful.prototype._setupListeners = function _setupListeners() {
+  var _this = this;
+  var cluster = this.cluster;
+  var process = this.process;
+
+  process.on('SIGTERM', function gracefulShutdown() {
+    _this.shutdown();
+  });
+
+  if (cluster.worker) {
+    var id = cluster.worker.id;
+
+    cluster.worker.on('disconnect', function gracefulShutdown() {
+      _this.shutdown();
+    });
+
+    process.on('exit', function(code) {
+      _this.log.warn('Worker #' + id +  ' about to exit with code', code);
+    });
+  }
+  else {
+    process.on('exit', function(code) {
+      _this.log.warn('About to exit with code:', code);
+    });
+  }
 };
