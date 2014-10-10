@@ -9,7 +9,6 @@ var cluster = require('cluster');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
-var _ = require('lodash');
 var winston = require('winston');
 
 /*
@@ -55,8 +54,8 @@ function Graceful(options) {
       _this.shutdown();
     });
 
-    this.process.on('exit', function(code) {
-      winston.warn('Worker about to exit with code', code);
+    this.process.on('_exit', function(code) {
+      winston.warn('Worker about to _exit with code', code);
     });
   }
 
@@ -72,7 +71,7 @@ module.exports = Graceful;
 wrong, call this method with the error and any additional information (like the `url`
 being serviced). The http server will be stopped, the error will be saved/sent via
 `this.messenger` and we'll start the process of checking to see if we can take down the
-process via `this.exit()`.
+process via `this._exit()`.
 
 Note: to be notified when this method is called, register for the 'shutdown' event:
 
@@ -88,9 +87,9 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
     this.error = err;
 
     winston.warn('Gracefully shutting down!');
-    this.sendError(err, info);
+    this._sendError(err, info);
     this.emit('shutdown');
-    this.exit();
+    this._exit();
   }
 };
 
@@ -100,18 +99,13 @@ Graceful.prototype.addCheck = function addCheck(check) {
   this.checks.push(check);
 };
 
-// `hasShutdown` tells you if a shutdown is in-process.
-Graceful.prototype.hasShutdown = function hasShutdown() {
-  return closed;
-};
-
 // Helper methods
 // ========
 
-// `sendError` uses `this.messenger` to save/send the error provided to `shutdown()`. It
+// `_sendError` uses `this.messenger` to save/send the error provided to `shutdown()`. It
 // it sets `this.sending` to `true` so we won't take the process down before the call is
 // complete.
-Graceful.prototype.sendError = function sendError(err, info) {
+Graceful.prototype._sendError = function _sendError(err, info) {
   var _this = this;
 
   if (err) {
@@ -123,69 +117,76 @@ Graceful.prototype.sendError = function sendError(err, info) {
   }
 };
 
-// `check` returns true if all check methods returned true.
-Graceful.prototype.check = function check() {
+// `_check` returns true if all check methods returned true.
+Graceful.prototype._check = function _check() {
   if (!this.checks || !this.checks.length) {
     return true;
   }
-  return _.all(this.checks, function(check) {
-    return check();
-  });
+
+  for (var i = 0, max = this.checks.length; i < max; i += 1) {
+    var check = this.checks[i];
+
+    if (!check()) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
-// `exit` exits if `check()` returns true. Otherwise it sets an interval to continue
+// `_exit` _exits if `check()` returns true. Otherwise it sets an interval to continue
 // trying. It also sets a timer - if we never get a successful `check()` call, we
 // take down the process anyway.
-Graceful.prototype.exit = function exit() {
+Graceful.prototype._exit = function _exit() {
   var _this = this;
 
   winston.info('Calling all provided pre-exit check functions...');
 
-  if (this.closed && this.check()) {
+  if (this.closed && this._check()) {
     if (this.interval) {
       clearInterval(this.interval);
     }
     if (this.timeout) {
       clearTimeout(this.timeout);
     }
-    _this.finalLog('Passed all checks! Shutting down!');
+    _this._finalLog('Passed all checks! Shutting down!');
   }
   else if (!this.interval) {
     this.interval = setInterval(function() {
-      _this.exit();
+      _this._exit();
     }, this.pollInterval);
 
     this.timeout = setTimeout(function() {
       _this.timeout = null;
-      _this.finalLog('Checks took too long. Killing process now!');
+      _this._finalLog('Checks took too long. Killing process now!');
     }, this.timeout);
   }
 };
 
 /*
-`finalLog` makes a final winston log, and takes down the process when winston tells us
+`_finalLog` makes a final winston log, and takes down the process when winston tells us
 that the log is complete.
 
 Unfortunately, because sometimes winston gets a bit messed up after unhandled exceptions,
 we also set a timer to make sure to take process down even if winston doesn't call the
 callback.
 */
-Graceful.prototype.finalLog = function finalLog(message) {
+Graceful.prototype._finalLog = function _finalLog(message) {
   var _this = this;
 
   winston.info(message, function(err, level, msg, meta) {
     /*jshint unused: false */
-    _this.die();
+    _this._die();
   });
 
   setTimeout(function() {
-    _this.die();
+    _this._die();
   }, 1000);
 };
 
-// `die` calls `process.exit()` with the right error code based on `this.error` (set in
+// `_die` calls `process._exit()` with the right error code based on `this.error` (set in
 // `shutdown()`).
-Graceful.prototype.die = function die() {
+Graceful.prototype._die = function _die() {
   var code = this.error ? this.error.code || 1 : 0;
-  process.exit(code);
+  this.process.exit(code);
 };
