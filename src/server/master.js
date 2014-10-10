@@ -67,6 +67,9 @@ Master.prototype.setGraceful = function setGraceful(graceful) {
   if (graceful) {
     this.graceful = graceful;
 
+    //default timeout for sending SIGINT is longer than timeout for Graceful force kill
+    this.graceful.timeout = this.killTimeout + this.pollInterval * 2;
+
     this.graceful.on('shutdown', function stopWorkers() {
       _this.shutdown();
     });

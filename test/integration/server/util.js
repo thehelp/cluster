@@ -20,6 +20,23 @@ exports.emptyDir = function emptyLogDir(dir, cb) {
   });
 };
 
-exports.startProcess = function(module) {
-  return fork(module);
+exports.startProcess = function(module, options) {
+  var child = fork(module, options);
+
+  if (child.stdout) {
+    child.stdoutResult = '';
+    child.stdout.on('data', function(data) {
+      process.stdout.write(data.toString());
+      child.stdoutResult += data;
+    });
+  }
+  if (child.stderr) {
+    child.stderrResult = '';
+    child.stderr.on('data', function(data) {
+      process.stderrResult.write(data.toString());
+      child.stderrResult += data;
+    });
+  }
+
+  return child;
 };
