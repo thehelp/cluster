@@ -3,9 +3,9 @@
 
 var path = require('path');
 var core = require('thehelp-core');
-core.env.merge(path.join(__dirname, '../env.json'));
+core.env.merge(path.join(__dirname, '../../env.json'));
 
-var cluster = require('../src/server/index');
+var cluster = require('../../src/server/index');
 
 cluster({
   masterOptions: {

@@ -1,7 +1,9 @@
 
 'use strict';
 
-process.env = require('../env.json');
+var path = require('path');
+var core = require('thehelp-core');
+core.env.merge(path.join(__dirname, '../../env.json'));
 
 var fs = require('fs');
 var http = require('http');
@@ -11,7 +13,7 @@ var winston = require('winston');
 var express = require('express');
 var morgan = require('morgan');
 
-var tc = require('../src/server/index');
+var tc = require('../../src/server/index');
 
 var graceful = new tc.Graceful();
 var gracefulExpress = new tc.GracefulExpress({

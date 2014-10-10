@@ -19,7 +19,7 @@ describe('thehelp-cluster', function() {
         throw err;
       }
 
-      child = util.startProcess(path.join(__dirname, '../../../test/start_cluster.js'));
+      child = util.startProcess(path.join(__dirname, '../../scenarios/start_cluster.js'));
       setTimeout(done, 1000);
     });
   });
