@@ -95,7 +95,7 @@ Master.prototype.shutdown = function shutdown() {
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
 Master.prototype.stop = function stop(cb) {
   var _this = this;
-  this.log.warn('Stopping all workers with SIGTERM...');
+  this.log.info('Stopping all workers with SIGTERM...');
 
   this.closed = true;
   this._sendToAll('SIGTERM');
