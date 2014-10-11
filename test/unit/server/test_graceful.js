@@ -124,7 +124,7 @@ describe('Graceful', function() {
   });
 
   describe('#_exit', function() {
-    it('calls _finalLog if check functions never return', function(done) {
+    it('calls _finalLog if check functions never return true', function(done) {
       graceful.pollInterval = 50;
       graceful.timeout = 175;
       graceful.closed = true;
