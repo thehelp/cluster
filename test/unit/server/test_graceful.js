@@ -20,6 +20,7 @@ describe('Graceful', function() {
   });
 
   afterEach(function() {
+    Graceful.instance = null;
     graceful.log = {
       warn: sinon.stub()
     };
@@ -50,7 +51,20 @@ describe('Graceful', function() {
       graceful = new Graceful();
       expect(graceful).to.have.deep.property('messenger', require('thehelp-last-ditch'));
     });
+
+    it('logs if previous instance has been created', function() {
+      /*jshint nonew: false */
+      var log = {
+        warn: sinon.stub()
+      };
+      new Graceful({
+        log: log
+      });
+
+      expect(log).to.have.deep.property('warn.callCount', 1);
+    });
   });
+
 
   describe('#shutdown', function() {
     it('doesn\'t call _sendError or _exit when called more than once', function() {

@@ -17,6 +17,8 @@ break through still-active keepalive connections keeping sockets open, preventin
 var domain = require('domain');
 var util = require('./util');
 
+var Graceful = require('./graceful');
+
 /*
 The `constructor` has some optional parameters:
 
@@ -40,7 +42,7 @@ function GracefulExpress(options) {
   }
 
   //both here for symmetry; unlikely that both of these are avalable on construction
-  this.setGraceful(options.graceful);
+  this.setGraceful(options.graceful || Graceful.instance);
   this.setServer(options.server);
 
   this.middleware = this.middleware.bind(this);

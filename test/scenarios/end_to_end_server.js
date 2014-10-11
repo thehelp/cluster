@@ -4,6 +4,7 @@
 var path = require('path');
 var core = require('thehelp-core');
 core.env.merge(path.join(__dirname, '../../env.json'));
+core.logs.setupConsole();
 
 var fs = require('fs');
 var http = require('http');
@@ -13,12 +14,8 @@ var winston = require('winston');
 var express = require('express');
 var morgan = require('morgan');
 
-var tc = require('../../src/server/index');
-
-var graceful = new tc.Graceful();
-var gracefulExpress = new tc.GracefulExpress({
-  graceful: graceful
-});
+var thCluster = require('../../src/server/index');
+var gracefulExpress = new thCluster.GracefulExpress();
 
 var app = express();
 

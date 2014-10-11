@@ -7,7 +7,8 @@
 'use strict';
 
 var cluster = require('cluster');
-var os = require('os');
+
+var Graceful = require('./graceful');
 
 /*
 The `constructor` has no required parameters.   Optional parameters:
@@ -23,7 +24,7 @@ for a more decisive kill
 
 */
 function Master(options) {
-  /*jshint maxcomplexity: 10 */
+  /*jshint maxcomplexity: 12 */
 
   options = options || {};
 
@@ -32,8 +33,7 @@ function Master(options) {
   this.pollInterval = options.pollInterval || 500;
   this.killTimeout = options.killTimeout || 7000;
   this.numberWorkers = options.numberWorkers ||
-    parseInt(process.env.THEHELP_NUMBER_WORKERS) ||
-    os.cpus().length;
+    parseInt(process.env.THEHELP_NUMBER_WORKERS) || 1;
 
   this.workers = {};
   this.closed = false;
@@ -42,8 +42,12 @@ function Master(options) {
   this.cluster.on('disconnect', this._restartWorker.bind(this));
 
   this.log = options.log || require('winston');
-  this.setGraceful(options.graceful);
+  this.setGraceful(options.graceful || Graceful.instance);
 
+  if (Master.instance) {
+    this.log.warn('More than one Master instance created in this process. ' +
+      'You\'ll have more worker processes than you signed up for!');
+  }
   Master.instance = this;
 }
 

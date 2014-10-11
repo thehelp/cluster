@@ -9,11 +9,11 @@ var fs = require('fs');
 
 var cluster = require('../../src/server/index');
 
+cluster.Graceful.start();
+
 cluster({
   master: function() {
-    var graceful = new cluster.Graceful();
     var master = new cluster.Master({
-      graceful: graceful,
       numberWorkers: 2
     });
     master.start();
@@ -25,7 +25,6 @@ cluster({
     }, 1000);
   },
   worker: function() {
-    var graceful = new cluster.Graceful();
-    console.log(graceful.logPrefix);
+    console.log('Starting worker...');
   }
 });

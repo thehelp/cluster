@@ -14,6 +14,10 @@ describe('Master', function() {
     master = new Master();
   });
 
+  afterEach(function() {
+    Master.instance = null;
+  });
+
   describe('constructor', function() {
     it('sets right defaults', function() {
       expect(master).to.have.property('spinTimeout', 5000);
@@ -27,6 +31,18 @@ describe('Master', function() {
       expect(master).to.have.property('closed', false);
 
       expect(Master).to.have.property('instance').that.deep.equal(master);
+    });
+
+    it('logs if previous instance has been created', function() {
+      /*jshint nonew: false */
+      var log = {
+        warn: sinon.stub()
+      };
+      new Master({
+        log: log
+      });
+
+      expect(log).to.have.deep.property('warn.callCount', 1);
     });
   });
 

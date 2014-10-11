@@ -140,10 +140,6 @@ Startup.prototype._timestampForPath = function _timestampForPath() {
 // `master` startup function on startup.
 Startup.prototype._defaultMasterStart = function _defaultMasterStart() {
   var Master = require('./master');
-
-  var options = this.masterOptions || {};
-  options.graceful = options.graceful || new Graceful();
-
-  var master = new Master(options);
+  var master = new Master(this.masterOptions);
   master.start();
 };

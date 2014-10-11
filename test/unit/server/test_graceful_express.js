@@ -5,12 +5,14 @@ var test = require('thehelp-test');
 var expect = test.expect;
 var sinon = test.sinon;
 
+var Graceful = require('../../../src/server/graceful');
 var GracefulExpress = require('../../../src/server/graceful_express');
 
 describe('GracefulExpress', function() {
   var graceful;
 
   beforeEach(function() {
+    Graceful.instance = null;
     graceful = new GracefulExpress();
   });
 

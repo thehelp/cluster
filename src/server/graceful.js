@@ -28,7 +28,7 @@ listens for a number of process-level events, making itself the handler for them
 `_setupListeners()` below._
 */
 function Graceful(options) {
-  /*jshint maxcomplexity: 8 */
+  /*jshint maxcomplexity: 9 */
 
   options = options || {};
 
@@ -53,12 +53,22 @@ function Graceful(options) {
   this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();
 
+  if (Graceful.instance) {
+    this.log.warn('More than one Graceful instance created in this process. ' +
+      'There are now duplicate process-level wireups!');
+  }
   Graceful.instance = this;
 }
 
 util.inherits(Graceful, EventEmitter);
 
 module.exports = Graceful;
+
+// A quick helper function, since other classes use `Graceful.instance` to find their
+// reference to your created `Graceful` object.
+Graceful.start = function start(options) {
+  return new Graceful(options);
+};
 
 /*
 `shutdown` is the key method for interacting with this class. When something goes
