@@ -1,4 +1,4 @@
-## 1.0.0 (2014-10-11)
+## 0.3.0 (2014-10-11)
 
 * Reduce logging verbosity
 * `DomainMiddleware` class renamed to `GracefulExpress`

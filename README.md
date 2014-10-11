@@ -27,10 +27,7 @@ Your worker processes should be set up like this to enable shutting down the ser
 
 ```
 var cluster = require('thehelp-cluster');
-var graceful = new cluster.Graceful();
-var gracefulExpress = new cluster.GracefulExpress({
-  graceful: graceful
-});
+var gracefulExpress = new cluster.GracefulExpress();
 
 var app = express();
 
@@ -48,10 +45,16 @@ gracefulExpress.setServer(server);
 server.listen(PORT);
 ```
 
-You start up the cluster like this:
+_Note: In development mode (`process.env.NODE_ENV === 'development'`), `GracefulExpress` will not set up a domain for every request. This allows easy in-process testing with `supertest`_
+
+Then, you start up the cluster like this:
 
 ```
 var cluster = require('thehelp-cluster');
+
+// set up graceful shutdown for both master and workers
+// Master and GracefulExpress classes will be wired up automatically
+cluster.Graceful.start();
 
 cluster({
   worker: function() {
@@ -60,7 +63,18 @@ cluster({
 });
 ```
 
-A top-level domain will be created both for master and worker processes. If you don't provide a `master` callback, an instance of the `Master` class will be automatically created for your master process to manage your worker processes. A separate log file will be set up for each process.
+A top-level domain will be created both for master and worker processes to catch unhandled errors outside of `express` request handling. If you don't provide a `master` callback, an instance of the `Master` class will be automatically created for your master process to manage your worker processes. By default, `winston` will be set up with a separate log file for each process, like this:
+
+```
+logs/master-2014-10-11T01-04:54.602Z-80524.log
+logs/master-2014-10-11T01-04:59.026Z-80528.log
+logs/worker-2014-10-11T01-04:54.771Z-80525.log
+logs/worker-2014-10-11T01-04:55.908Z-80526.log
+logs/worker-2014-10-11T01-04:58.224Z-80527.log
+logs/worker-2014-10-11T01-04:59.200Z-80529.log
+```
+
+Files will be created in your specified logs directory, with the process type, date and time, and process pid in the filename.
 
 ## Advanced
 
@@ -80,6 +94,12 @@ graceful.addCheck(function() {
 Take a look at how `Master` and `GracefulExpress` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
 
 The exposed four classes also provide a deeper level of customization. For example, instead of using the default configuration of `thehelp-last-ditch`, you can provide `messenger` callbacks of the form `function(err, options, cb)`. Or, instead of letting these classes log with `winston`, you can provide `log` objecst with `info`/`warn`/`error` functions to pipe output to your own logging system.
+
+## A note on domains
+
+[Node.js domains](http://nodejs.org/api/domain.html), while powerful, are still in the unstable state, so this module will be kept in the `0.x.y` version range until that changes.
+
+It should also be noted that not all libraries support domains. `pg` only started supporting domains in `3.x`. Do testing with your libraries of choice to ensure that they play nicely.
 
 ## Development
 
