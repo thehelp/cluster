@@ -168,12 +168,12 @@ Graceful.prototype._clearTimers = function _clearTimers() {
 };
 
 /*
-`_finalLog` makes a final winston log, and takes down the process when winston tells us
-that the log is complete.
+`_finalLog` makes a final log entry then takes down the process when that log call is
+complete.
 
-Unfortunately, because sometimes winston gets a bit messed up after unhandled exceptions,
-we also set a timer to make sure to take process down even if winston doesn't call the
-callback.
+Why so complex? To ensure that any `winston` file transports are properly flushed. You'll
+note without this, if `_die()` is called directly in `_exit()` above, the main integration
+tests will result in log files without the final 'about to exit with code X' entries.
 */
 Graceful.prototype._finalLog = function _finalLog(type, message) {
   var _this = this;
