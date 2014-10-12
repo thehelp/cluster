@@ -36,6 +36,18 @@ function GracefulExpress(options) {
   this.closed = false;
   this.activeRequests = 0;
 
+  this.rejectDuringShutdown = options.rejectDuringShutdown;
+  if (typeof this.rejectDuringShutdown === 'undefined') {
+    this.rejectDuringShutdown = true;
+  }
+
+  this.sockets = [];
+  this.activeSockets = [];
+  this.closeSockets = options.closeSockets;
+  if (typeof this.closeSockets === 'undefined') {
+    this.closeSockets = true;
+  }
+
   this.development = options.development;
   if (typeof this.development === 'undefined') {
     this.development = (process.env.NODE_ENV === 'development');
@@ -50,6 +62,9 @@ function GracefulExpress(options) {
 
 module.exports = GracefulExpress;
 
+// Public Methods
+// ========
+
 // `setGraceful` is a way to provide the reference after construction.
 GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
   var _this = this;
@@ -59,6 +74,9 @@ GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
 
     this.graceful.on('shutdown', function domainStopServer() {
       _this._stopServer();
+      if (_this.closeSockets) {
+        _this._closeAllSockets();
+      }
     });
 
     this.graceful.addCheck(function domainActiveRequests() {
@@ -87,34 +105,153 @@ GracefulExpress.prototype.setServer = function setServer(server) {
 // of that request's handlers.
 GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   var _this = this;
-  var d = domain.create();
 
+  if (this.development) {
+    next();
+  }
+
+  this._addSocket(req.socket);
+  this._addActiveSocket(req.socket);
   this._onStart(req);
-
-  d.add(req);
-  d.add(res);
 
   // bind to all three to be completely sure; handler only called once
   var finish = util.once(function() {
+    _this._removeActiveSocket(req.socket);
     _this._onFinish(req);
   });
   res.on('finish', finish);
   res.on('close', finish);
   res.on('end', finish);
 
+  var end = res.end;
+  res.end = function() {
+    if (_this.closed) {
+      _this._closeConnection(res);
+    }
+    end.apply(res, arguments);
+  };
+
+  if (this.closed && this.rejectDuringShutdown) {
+    var err = new Error('Server is shutting down; rejecting request');
+    err.statusCode = 503;
+    err.text = 'Please try again later; this server is shutting down';
+    return next(err);
+  }
+
+  var d = domain.create();
+  d.add(req);
+  d.add(res);
   d.on('error', function(err) {
     _this._onError(err, req, res, next);
   });
 
-  if (this.closed) {
-    this._closeConnection(res);
+  d.run(next);
+};
+
+// Socket Management
+// =======
+
+GracefulExpress.prototype._closeAllSockets = function() {
+  this.sockets = this.sockets || [];
+
+  if (!this.closeSockets) {
+    return;
   }
 
-  if (this.development) {
-    next();
+  var inactive = this._getInactiveSockets();
+
+  for (var i = 0, max = inactive.length; i < max; i += 1) {
+    var socket = inactive[i];
+    socket.destroy();
   }
-  else {
-    d.run(next);
+};
+
+GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
+  if (!this.closeSockets) {
+    return;
+  }
+
+  var inactive = [];
+
+  for (var i = 0, iMax = this.sockets.length; i < iMax; i += 1) {
+    var socket = this.sockets[i];
+    var add = true;
+
+    for (var j = 0, jMax = this.activeSockets.length; j < jMax; j += 1) {
+      var active = this.activeSockets[j];
+
+      if (socket === active) {
+        add = false;
+        break;
+      }
+    }
+
+    if (add) {
+      inactive.push(socket);
+    }
+  }
+
+  return inactive;
+};
+
+GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
+  if (!this.closeSockets) {
+    return;
+  }
+
+  this.activeSockets.push(socket);
+};
+
+GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(socket) {
+  if (!this.closeSockets) {
+    return;
+  }
+
+  for (var i = 0, max = this.activeSockets.length; i < max; i += 1) {
+    var element = this.activeSockets[i];
+
+    if (element === socket) {
+      this.activeSockets = this.activeSockets.slice(0, i)
+        .concat(this.activeSockets.slice(i + 1));
+
+      return;
+    }
+  }
+};
+
+GracefulExpress.prototype._addSocket = function _addSocket(socket) {
+  var _this = this;
+
+  if (!this.closeSockets) {
+    return;
+  }
+
+  for (var i = 0, max = this.sockets.length; i < max; i += 1) {
+    var element = this.sockets[i];
+
+    if (element === socket) {
+      return;
+    }
+  }
+
+  this.sockets.push(socket);
+
+  socket.on('close', function() {
+    _this._removeSocket(socket);
+  });
+};
+
+GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
+  if (!this.closeSockets) {
+    return;
+  }
+
+  for (var i = 0, max = this.sockets.length; i < max; i += 1) {
+    var element = this.sockets[i];
+    if (element === socket) {
+      this.sockets = this.sockets.slice(0, i).concat(this.sockets.slice(i + 1));
+      return;
+    }
   }
 };
 

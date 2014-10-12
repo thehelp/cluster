@@ -9,6 +9,7 @@
     "thehelp-last-ditch": "1.x"
   },
   "devDependencies": {
+    "agentkeepalive": "0.2.2",
     "blanket": "1.1.6",
     "express": "4.9.5",
     "grunt": "0.4.5",

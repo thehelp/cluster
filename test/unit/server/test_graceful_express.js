@@ -53,5 +53,22 @@ describe('GracefulExpress', function() {
     });
   });
 
+  describe('adds and removes sockets', function() {
+    it('adds a new socket just once, and can remove it', function() {
+      var socket = {
+        on: sinon.stub()
+      };
+      graceful._addSocket(socket);
+      graceful._addSocket(socket);
+
+      expect(graceful).to.have.property('sockets').that.has.length(1);
+      expect(socket).to.have.deep.property('on.callCount', 1);
+
+      graceful._removeSocket(socket);
+
+      expect(graceful).to.have.property('sockets').that.has.length(0);
+    });
+  });
+
 });
 

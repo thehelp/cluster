@@ -15,12 +15,14 @@ var express = require('express');
 var morgan = require('morgan');
 
 var thCluster = require('../../src/server/index');
-var gracefulExpress = new thCluster.GracefulExpress();
+var gracefulExpress = new thCluster.GracefulExpress({
+  // rejectDuringShutdown: false,
+  // closeSockets: false
+});
 
 var app = express();
 
 app.use(morgan('combined'));
-app.use(gracefulExpress.middleware);
 
 var worker = cluster.isMaster ? 'n/a' : cluster.worker.id;
 app.use(function(req, res, next) {
@@ -28,14 +30,15 @@ app.use(function(req, res, next) {
   next();
 });
 
+app.use(gracefulExpress.middleware);
+
 app.get('/', function(req, res) {
   res.send('success');
 });
 
 app.get('/delay', function(req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
   setTimeout(function() {
-    res.end('OK\n');
+    res.send('OK\n');
   }, 2000);
 });
 
@@ -62,12 +65,21 @@ app.use(function(req, res) {
 
 app.use(function(err, req, res, next) {
   /*jshint unused: false */
+  winston.error(req.url + ': ' + core.breadcrumbs.toString(err));
+  var message = err.text || ('error! ' + err.stack);
+
   res.type('txt');
-  res.status(500);
-  res.send('error! ' + err.stack);
+  res.status(err.statusCode || 500);
+  res.send(message);
 });
 
 var server = http.createServer(app);
 gracefulExpress.setServer(server);
 server.listen(3000);
 winston.warn('Worker listening on port 3000');
+
+module.exports = {
+  server: server,
+  gracefulExpress: gracefulExpress,
+  app: app
+};
