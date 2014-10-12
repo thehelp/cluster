@@ -1,3 +1,6 @@
+// index
+// ========
+// Some basic cross-project utility functions
 
 'use strict';
 
