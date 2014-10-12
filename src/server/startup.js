@@ -2,7 +2,6 @@
 // A class to encompass both dual master/worker cluster launch and installation of a
 // top-level domain for the process.
 
-// [strict mode](http://mzl.la/1fRhnam)
 'use strict';
 
 var cluster = require('cluster');

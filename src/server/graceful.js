@@ -2,7 +2,6 @@
 // Encapsulates everything needed to shut down a worker process without interrupting
 // anything important, even active requests on an http server.
 
-// [strict mode](http://mzl.la/1fRhnam)
 'use strict';
 
 var cluster = require('cluster');

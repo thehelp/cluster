@@ -3,7 +3,6 @@
 // Supports graceful shutdown via the `SIGTERM` signal, as well as detection child
 // processes crashing too quickly after launch.
 
-// [strict mode](http://mzl.la/1fRhnam)
 'use strict';
 
 var cluster = require('cluster');
