@@ -121,7 +121,7 @@ describe('end-to-end', function() {
     agent
       .get('/delay')
       .expect('X-Worker', '2')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -218,5 +218,68 @@ describe('end-to-end', function() {
     });
   });
 
-});
+  it('sets connection:close even if endpoint uses res.writeHead', function(done) {
+    this.timeout(5000);
 
+    done = serverUtil.once(done);
+
+    agent
+      .get('/delayWriteHead')
+      .expect('X-Worker', '3')
+      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
+      .expect(200, function(err) {
+        if (err) {
+          err.message += ' - /delay request';
+          console.log(err);
+          return done(err);
+        }
+
+        done();
+      });
+
+    agent
+      .get('/error')
+      .expect('Connection', 'Connection: close')
+      .expect('X-Worker', '3')
+      .expect(500, function(err) {
+        if (err) {
+          err.message += ' - /error request';
+          console.log(err);
+          return done(err);
+        }
+      });
+  });
+
+  it('sets connection:close even if endpoint uses res.write', function(done) {
+    this.timeout(5000);
+
+    done = serverUtil.once(done);
+
+    agent
+      .get('/delayWrite')
+      .expect('X-Worker', '4')
+      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
+      .expect(200, function(err) {
+        if (err) {
+          err.message += ' - /delay request';
+          console.log(err);
+          return done(err);
+        }
+
+        done();
+      });
+
+    agent
+      .get('/error')
+      .expect('Connection', 'Connection: close')
+      .expect('X-Worker', '4')
+      .expect(500, function(err) {
+        if (err) {
+          err.message += ' - /error request';
+          console.log(err);
+          return done(err);
+        }
+      });
+  });
+
+});

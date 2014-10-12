@@ -5,11 +5,16 @@ Working with the `Graceful` class, provides full graceful shutdown for an
 `express`-based server:
 
 1. Each request is wrapped a domain to ensure that even if an exception is thrown in a
-callback the client receives a response. If wired up, `Graceful` is notified of the error,
-and starts the shutdown process.
-2. It keeps track of all active requests so we know when it is safe to shut down. It helps
-break through still-active keepalive connections keeping sockets open, preventing the
-'close' event from being fired.
+callback the client receives a response. If found, your `Graceful` instance is notified of
+the error, and starts the shutdown process.
+2. It keeps track of all active requests so we know when it is safe to shut down.
+3. On shutdown, it calls `server.close()` to stop accepting new connections, and destroys
+all inactive sockets (idle keepalive connections).
+4. Patches `res.end` and `res.writeHead` to ensures that a server in shutdown mode
+includes a 'Connection: close' header in all subsequent responses, even response which
+were in-process when
+5. A backstop for all requests that leak through when the server is in shutdown mode:
+calling your Express error handler with an `Error` with `statusCode = 503`
 
 */
 'use strict';
@@ -23,11 +28,23 @@ var Graceful = require('./graceful');
 The `constructor` has some optional parameters:
 
 + `graceful` - if set either on construction or later with `setGraceful()`, `shutdown()`
-will be called with any unhandled error encountered.
-+ `development` - if set to true, will prevent domains from being set up for every
-request, enabling in-process testing of your endpoints, as is often done with `supertest`.
+will be called with any unhandled error encountered. Default is `Graceful.instance`, so if
+you've created an instance in this process already, it will found automatically.
 + `server` - the http server, though unlikely to be available on construction of this
 class. More likely you'll use 'setServer()` later.
++ `development` - if set to true, will prevent domains from being set up for every
+request, enabling in-process testing of your endpoints, as is often done with `supertest`.
+
++ `closeSockets` - default true. If true, `GracefulExpress` will keep track of all sockets
+behind requests passing through its `middleware()` function, marking them as inactive when
+the request ends. Those sockets will be closed when the server shuts down. This feature is
+designed to get through idle keepalive connections.
++ `rejectDuringShutdown` - default true. If true, when server is shutting down, any
+request that leaks through result in an `Error` with `statusCode = 503` will be passed to
+your Express error handler.
++ `patchMethods` we patch `res.end`, `res.writeHead` to ensure that any request in-process
+as an error happens gets a `Connection: close` header.
+
 */
 function GracefulExpress(options) {
   options = options || {};
@@ -51,6 +68,11 @@ function GracefulExpress(options) {
   this.development = options.development;
   if (typeof this.development === 'undefined') {
     this.development = (process.env.NODE_ENV === 'development');
+  }
+
+  this.patchResMethods = options.patchResMethods;
+  if (typeof this.patchResMethods === 'undefined') {
+    this.patchResMethods = true;
   }
 
   //both here for symmetry; unlikely that both of these are avalable on construction
@@ -123,14 +145,11 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   res.on('close', finish);
   res.on('end', finish);
 
-  var end = res.end;
-  res.end = function() {
-    if (_this.closed) {
-      _this._closeConnection(res);
-    }
-    end.apply(res, arguments);
-  };
+  this._patchResMethods(res);
 
+  if (this.closed) {
+    this._closeConnection(res);
+  }
   if (this.closed && this.rejectDuringShutdown) {
     var err = new Error('Server is shutting down; rejecting request');
     err.statusCode = 503;
@@ -151,7 +170,8 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 // Socket Management
 // =======
 
-GracefulExpress.prototype._closeAllSockets = function() {
+// `_closeAllSockets` destroys all inactive sockets
+GracefulExpress.prototype._closeAllSockets = function _closeAllSockets() {
   this.sockets = this.sockets || [];
 
   if (!this.closeSockets) {
@@ -166,6 +186,8 @@ GracefulExpress.prototype._closeAllSockets = function() {
   }
 };
 
+// `_getInactiveSockets` builds a list of inactive sockets by looping through all
+// `this.sockets`, ensuring that they are not present in `this.activeSockets`
 GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
   if (!this.closeSockets) {
     return;
@@ -194,6 +216,8 @@ GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
   return inactive;
 };
 
+// `_addActiveSocket` adds provided socket to `this.activeSockets`, with no
+// duplicate-checking
 GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
   if (!this.closeSockets) {
     return;
@@ -202,6 +226,7 @@ GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
   this.activeSockets.push(socket);
 };
 
+// `_removeActiveSocket` removes provided socket from `this.activeSockets`
 GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(socket) {
   if (!this.closeSockets) {
     return;
@@ -219,6 +244,7 @@ GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(soc
   }
 };
 
+// `_addSocket` adds provided socket to `this.sockets` if it isn't already in the list
 GracefulExpress.prototype._addSocket = function _addSocket(socket) {
   var _this = this;
 
@@ -241,6 +267,7 @@ GracefulExpress.prototype._addSocket = function _addSocket(socket) {
   });
 };
 
+// `_removeSocket` removes provided socket from `this.sockets`
 GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
   if (!this.closeSockets) {
     return;
@@ -258,18 +285,39 @@ GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
 // Helper functions
 // ========
 
-// `_stopServer` tells the http server to stop accepting new connections. Unfortunately,
-// this isn't enough, as it will continue to service new requests made on already-existing
-// keepalive connections.
-GracefulExpress.prototype._stopServer = function _stopServer() {
-  this.closed = true;
+// `_patchMethods` updates `res.end` and `res.writeHead` to include a 'Connection: close'
+// header if the server is shutting down. Important for ensuring that any request
+// in-process during an error has its connection shut down.
+GracefulExpress.prototype._patchResMethods = function _patchResMethods(res) {
+  var _this = this;
 
-  if (this.server) {
-    try {
-      this.server.close();
-    }
-    catch (e) {}
+  if (!this.patchResMethods) {
+    return;
   }
+
+  var end = res.end;
+  res.end = function gracefulEnd() {
+    if (!res.headersSent && _this.closed) {
+      _this._closeConnection(res);
+    }
+    end.apply(res, arguments);
+  };
+
+  var writeHead = res.writeHead;
+  res.writeHead = function gracefulWriteHead(statusCode, reasonPhrase, headers) {
+    headers = headers || reasonPhrase || {};
+
+    if (_this.closed) {
+      headers.Connection = 'Connection: close';
+    }
+
+    if (reasonPhrase) {
+      writeHead.call(res, statusCode, reasonPhrase, headers);
+    }
+    else {
+      writeHead.call(res, statusCode, headers);
+    }
+  };
 };
 
 // `_closeConnection` tells any keepalive collection to close. Again, unfortunately not
@@ -297,6 +345,20 @@ GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
   }
 
   next(err);
+};
+
+// `_stopServer` tells the http server to stop accepting new connections. Unfortunately,
+// this isn't enough, as it will continue to service new requests made on already-existing
+// keepalive connections. Hence all the socket and 'Connection: close'-related code above.
+GracefulExpress.prototype._stopServer = function _stopServer() {
+  this.closed = true;
+
+  if (this.server) {
+    try {
+      this.server.close();
+    }
+    catch (e) {}
+  }
 };
 
 // `_onStart` increments the in-progress request count.

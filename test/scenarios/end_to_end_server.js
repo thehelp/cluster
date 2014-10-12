@@ -16,8 +16,9 @@ var morgan = require('morgan');
 
 var thCluster = require('../../src/server/index');
 var gracefulExpress = new thCluster.GracefulExpress({
+  // closeSockets: false,
   // rejectDuringShutdown: false,
-  // closeSockets: false
+  // patchResMethods: false
 });
 
 var app = express();
@@ -39,6 +40,20 @@ app.get('/', function(req, res) {
 app.get('/delay', function(req, res) {
   setTimeout(function() {
     res.send('OK\n');
+  }, 2000);
+});
+
+app.get('/delayWriteHead', function(req, res) {
+  setTimeout(function() {
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end('OK\n');
+  }, 2000);
+});
+
+app.get('/delayWrite', function(req, res) {
+  setTimeout(function() {
+    res.write('first bit');
+    res.end('second bit\n');
   }, 2000);
 });
 
