@@ -5,7 +5,6 @@ var path = require('path');
 
 var supertest = require('supertest');
 var util = require('./util');
-var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
 describe('patchResMethods = false', function() {
@@ -34,7 +33,7 @@ describe('patchResMethods = false', function() {
     agent
       .get('/')
       .expect('X-Worker', '1')
-      .expect('Connection', 'keep-alive')
+      .expect('Connection', 'close')
       .expect(200, done);
   });
 

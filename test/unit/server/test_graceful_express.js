@@ -111,7 +111,7 @@ describe('GracefulExpress', function() {
       };
       var socket3 = {
         on: sinon.stub()
-      }
+      };
 
       graceful._addSocket(socket1);
       graceful._addSocket(socket2);
@@ -129,6 +129,5 @@ describe('GracefulExpress', function() {
       expect(inactive).to.have.property('0', socket3);
     });
   });
-
 
 });
