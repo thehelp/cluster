@@ -98,7 +98,7 @@ GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
     this.graceful.on('shutdown', function domainStopServer() {
       _this._stopServer();
       if (_this.closeSockets) {
-        _this._closeAllSockets();
+        _this._closeInactiveSockets();
       }
     });
 
@@ -171,8 +171,8 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 // Socket Management
 // =======
 
-// `_closeAllSockets` destroys all inactive sockets
-GracefulExpress.prototype._closeAllSockets = function _closeAllSockets() {
+// `_closeInactiveSockets` destroys all inactive sockets
+GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets() {
   this.sockets = this.sockets || [];
 
   if (!this.closeSockets) {
