@@ -219,7 +219,7 @@ Graceful.prototype._setupListeners = function _setupListeners() {
   });
 
   process.on('exit', function(code) {
-    _this.log.warn(_this.logPrefix + ' about to exit with code', code);
+    _this.log.warn(_this.logPrefix + ' about to exit with code ' + code);
   });
 
   if (cluster.worker) {
