@@ -12,7 +12,7 @@ the error, and starts the shutdown process.
 all inactive sockets (idle keepalive connections).
 4. Patches `res.end` and `res.writeHead` to ensures that a server in shutdown mode
 includes a 'Connection: close' header in all subsequent responses, even response which
-were in-process when
+were in-process when the error happened.
 5. A backstop for all requests that leak through when the server is in shutdown mode:
 calling your Express error handler with an `Error` with `statusCode = 503`
 
@@ -29,21 +29,22 @@ The `constructor` has some optional parameters:
 
 + `graceful` - if set either on construction or later with `setGraceful()`, `shutdown()`
 will be called with any unhandled error encountered. Default is `Graceful.instance`, so if
-you've created an instance in this process already, it will found automatically.
+you've created an instance in this process already, it will be found automatically.
 + `server` - the http server, though unlikely to be available on construction of this
-class. More likely you'll use 'setServer()` later.
+class. More likely you'll use `setServer()` later.
 + `development` - if set to true, will prevent domains from being set up for every
 request, enabling in-process testing of your endpoints, as is often done with `supertest`.
-
+Defaults to `process.env.NODE_ENV === 'development'`
 + `closeSockets` - default true. If true, `GracefulExpress` will keep track of all sockets
 behind requests passing through its `middleware()` function, marking them as inactive when
 the request ends. Those sockets will be closed when the server shuts down. This feature is
-designed to get through idle keepalive connections.
-+ `rejectDuringShutdown` - default true. If true, when server is shutting down, any
-request that leaks through result in an `Error` with `statusCode = 503` will be passed to
+designed to close down idle keepalive connections.
++ `rejectDuringShutdown` - default true. If true, when the server is shutting down, any
+request that leaks through results in an `Error` with `statusCode = 503` be passed to
 your Express error handler.
-+ `patchMethods` we patch `res.end`, `res.writeHead` to ensure that any request in-process
-as an error happens gets a `Connection: close` header.
++ `patchMethods` - default true. If true, `middleware()` patches `res.end`,
+`res.writeHead` to ensure that any request in-process as an error happens gets a
+`Connection: close` header.
 
 */
 function GracefulExpress(options) {
