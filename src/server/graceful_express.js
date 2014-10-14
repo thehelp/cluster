@@ -8,11 +8,9 @@ Working with the `Graceful` class, provides full graceful shutdown for an
 callback the client receives a response. If found, your `Graceful` instance is notified of
 the error, and starts the shutdown process.
 2. It keeps track of all active requests so we know when it is safe to shut down.
-3. On shutdown, it calls `server.close()` to stop accepting new connections, and destroys
-all inactive sockets (idle keepalive connections).
-4. Patches `res.end` and `res.writeHead` to ensures that a server in shutdown mode
-includes a 'Connection: close' header in all subsequent responses, even response which
-were in-process when the error happened.
+3. On shutdown, it calls `server.close()` to stop accepting new connections, destroys
+all inactive sockets (idle keepalive connections), and sets 'Connection: close' on all
+in-process requests.
 5. A backstop for all requests that leak through when the server is in shutdown mode:
 calling your Express error handler with an `Error` with `statusCode = 503`
 
@@ -42,9 +40,6 @@ designed to close down idle keepalive connections.
 + `rejectDuringShutdown` - default true. If true, when the server is shutting down, any
 request that leaks through results in an `Error` with `statusCode = 503` be passed to
 your Express error handler.
-+ `patchMethods` - default true. If true, `middleware()` patches `res.end`,
-`res.writeHead` to ensure that any request in-process as an error happens gets a
-`Connection: close` header.
 
 */
 function GracefulExpress(options) {
@@ -52,7 +47,7 @@ function GracefulExpress(options) {
 
   this.server = null;
   this.closed = false;
-  this.activeRequests = 0;
+  this.requests = [];
 
   this.rejectDuringShutdown = options.rejectDuringShutdown;
   if (typeof this.rejectDuringShutdown === 'undefined') {
@@ -69,11 +64,6 @@ function GracefulExpress(options) {
   this.development = options.development;
   if (typeof this.development === 'undefined') {
     this.development = (process.env.NODE_ENV === 'development');
-  }
-
-  this.patchResMethods = options.patchResMethods;
-  if (typeof this.patchResMethods === 'undefined') {
-    this.patchResMethods = true;
   }
 
   //both here for symmetry; unlikely that both of these are avalable on construction
@@ -99,11 +89,12 @@ GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
       _this._stopServer();
       if (_this.closeSockets) {
         _this._closeInactiveSockets();
+        _this._closeResponses();
       }
     });
 
     this.graceful.addCheck(function domainActiveRequests() {
-      return _this.development || _this.activeRequests === 0;
+      return _this.development || _this.requests.length === 0;
     });
   }
 };
@@ -135,18 +126,16 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 
   this._addSocket(req.socket);
   this._addActiveSocket(req.socket);
-  this._onStart(req);
+  this._addReponse(res);
 
   // bind to all three to be completely sure; handler only called once
   var finish = util.once(function() {
     _this._removeActiveSocket(req.socket);
-    _this._onFinish(req);
+    _this._removeResponse(res);
   });
   res.on('finish', finish);
   res.on('close', finish);
   res.on('end', finish);
-
-  this._patchResMethods(res);
 
   if (this.closed) {
     this._closeConnection(res);
@@ -166,6 +155,77 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   });
 
   d.run(next);
+};
+
+// Helper functions
+// ========
+
+// `_closeConnection` tells any keepalive collection to close. Again, unfortunately not
+// enough because some keepalive connections will not make any requests as we're shutting
+// down.
+GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
+  res.shouldKeepAlive = false;
+};
+
+/*
+`_onError` is the method called when a request domain catches an error. It
+
+  1. closes the http keepalive connection
+  2. starts a graceful shutdown if we have a `Graceful` instance
+  3. and passes the error to the registered express error handler
+*/
+GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
+  this._closeConnection(res);
+
+  //Don't want the entire domain object to pollute the log entry for this error
+  delete err.domain;
+
+  if (this.graceful) {
+    this.graceful.shutdown(err, req);
+  }
+
+  next(err);
+};
+
+// `_stopServer` tells the http server to stop accepting new connections. Unfortunately,
+// this isn't enough, as it will continue to service new requests made on already-existing
+// keepalive connections. Hence all the socket and 'Connection: close'-related code above.
+GracefulExpress.prototype._stopServer = function _stopServer() {
+  this.closed = true;
+
+  if (this.server) {
+    try {
+      this.server.close();
+    }
+    catch (e) {}
+  }
+};
+
+// Request management
+// ========
+
+// `_closeResponses` calls `_closeConnection` on every active request
+GracefulExpress.prototype._closeResponses = function _closeResponses() {
+  for (var i = 0, max = this.requests.length; i < max; i += 1) {
+    var req = this.requests[i];
+    this._closeConnection(req);
+  }
+};
+
+// `_addReponse` increments the in-progress request count.
+GracefulExpress.prototype._addReponse = function _addReponse(req) {
+  this.requests.push(req);
+};
+
+// `_removeResponse` decrements the in-progress request count.
+GracefulExpress.prototype._removeResponse = function _removeResponse(req) {
+  for (var i = 0, max = this.requests.length; i < max; i += 1) {
+    var element = this.requests[i];
+    if (element === req) {
+      this.requests = this.requests.slice(0, i).concat(this.requests.slice(i + 1));
+      return;
+    }
+  }
 };
 
 // Socket Management
@@ -281,93 +341,4 @@ GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
       return;
     }
   }
-};
-
-// Helper functions
-// ========
-
-// `_patchMethods` updates `res.end` and `res.writeHead` to include a 'Connection: close'
-// header if the server is shutting down. Important for ensuring that any request
-// in-process during an error has its connection shut down.
-GracefulExpress.prototype._patchResMethods = function _patchResMethods(res) {
-  var _this = this;
-
-  if (!this.patchResMethods) {
-    return;
-  }
-
-  var end = res.end;
-  res.end = function gracefulEnd() {
-    if (!res.headersSent && _this.closed) {
-      _this._closeConnection(res);
-    }
-    end.apply(res, arguments);
-  };
-
-  var writeHead = res.writeHead;
-  res.writeHead = function gracefulWriteHead(statusCode, reasonPhrase, headers) {
-    headers = headers || reasonPhrase || {};
-
-    if (_this.closed) {
-      headers.Connection = 'Connection: close';
-    }
-
-    if (reasonPhrase) {
-      writeHead.call(res, statusCode, reasonPhrase, headers);
-    }
-    else {
-      writeHead.call(res, statusCode, headers);
-    }
-  };
-};
-
-// `_closeConnection` tells any keepalive collection to close. Again, unfortunately not
-// enough because some keepalive connections will not make any requests as we're shutting
-// down.
-GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
-  res.setHeader('Connection', 'Connection: close');
-};
-
-/*
-`_onError` is the method called when a request domain catches an error. It
-
-  1. closes the http keepalive connection
-  2. starts a graceful shutdown if we have a `Graceful` instance
-  3. and passes the error to the registered express error handler
-*/
-GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
-  this._closeConnection(res);
-
-  //Don't want the entire domain object to pollute the log entry for this error
-  delete err.domain;
-
-  if (this.graceful) {
-    this.graceful.shutdown(err, req);
-  }
-
-  next(err);
-};
-
-// `_stopServer` tells the http server to stop accepting new connections. Unfortunately,
-// this isn't enough, as it will continue to service new requests made on already-existing
-// keepalive connections. Hence all the socket and 'Connection: close'-related code above.
-GracefulExpress.prototype._stopServer = function _stopServer() {
-  this.closed = true;
-
-  if (this.server) {
-    try {
-      this.server.close();
-    }
-    catch (e) {}
-  }
-};
-
-// `_onStart` increments the in-progress request count.
-GracefulExpress.prototype._onStart = function _onStart() {
-  this.activeRequests += 1;
-};
-
-// `_onFinish` decrements the in-progress request count.
-GracefulExpress.prototype._onFinish = function _onFinish() {
-  this.activeRequests -= 1;
 };

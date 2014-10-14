@@ -74,7 +74,7 @@ describe('end-to-end', function() {
     agent
       .get('/error')
       .agent(pool)
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect('Content-Type', /text\/plain/)
       .expect('X-Worker', '1')
       .expect(/^error\!/)
@@ -117,11 +117,30 @@ describe('end-to-end', function() {
     done = serverUtil.once(done);
     var delayComplete = false;
 
+    var second = new Pool({
+      keepAliveMsecs: 10000
+    });
+
+    // long-running task still gets connection:close, even though error comes after
+    agent
+      .get('/longDelay')
+      .agent(second)
+      .expect('X-Worker', '2')
+      .expect('Connection', 'close') // relies on patchResMethods = true
+      .expect(200, function(err) {
+        if (err) {
+          err.message += ' - /longDelay request';
+          console.log(err);
+          return done(err);
+        }
+      });
+
     // long-running task still gets connection:close, even though error comes after
     agent
       .get('/delay')
+      .agent(second)
       .expect('X-Worker', '2')
-      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
+      .expect('Connection', 'close') // relies on patchResMethods = true
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -130,11 +149,27 @@ describe('end-to-end', function() {
         }
 
         delayComplete = true;
+
+        // we use the same pool as
+        setImmediate(function() {
+          agent
+            .get('/')
+            .agent(second)
+            .expect('X-Worker', '3')
+            .expect('Connection', 'keep-alive')
+            .expect(200, function(err) {
+              if (err) {
+                err.message += ' - / request, on second pool';
+                console.log(err);
+                return done(err);
+              }
+            });
+        });
       });
 
     agent
       .get('/error')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect('X-Worker', '2')
       .expect(500, function(err) {
         if (err) {
@@ -156,14 +191,14 @@ describe('end-to-end', function() {
           // closeSockets = false / rejectDuringShutdown = false
           // risky! requests leak through, might be cut off in the middle at process.exit
           // .expect('X-Worker', '2')
-          // .expect('Connection', 'Connection: close')
+          // .expect('Connection', 'close')
           // .expect('success')
           // .expect(200, function(err) {
 
           // closeSockets = false / rejectDuringShutdown = true
           // not too pretty! requests leak through, but are rejected with a 503
           // .expect('X-Worker', '2')
-          // .expect('Connection', 'Connection: close')
+          // .expect('Connection', 'close')
           // .expect('Please try again later; this server is shutting down')
           // .expect(503, function(err) {
 
@@ -226,7 +261,7 @@ describe('end-to-end', function() {
     agent
       .get('/delayWriteHead')
       .expect('X-Worker', '3')
-      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
+      .expect('Connection', 'close') // relies on patchResMethods = true
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -239,7 +274,7 @@ describe('end-to-end', function() {
 
     agent
       .get('/error')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect('X-Worker', '3')
       .expect(500, function(err) {
         if (err) {
@@ -258,7 +293,7 @@ describe('end-to-end', function() {
     agent
       .get('/delayWrite')
       .expect('X-Worker', '4')
-      .expect('Connection', 'Connection: close') // relies on patchResMethods = true
+      .expect('Connection', 'close') // relies on patchResMethods = true
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -271,7 +306,7 @@ describe('end-to-end', function() {
 
     agent
       .get('/error')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect('X-Worker', '4')
       .expect(500, function(err) {
         if (err) {

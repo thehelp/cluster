@@ -55,7 +55,7 @@ describe('closeSockets = false', function() {
     agent
       .get('/delay')
       .expect('X-Worker', '1')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -68,7 +68,7 @@ describe('closeSockets = false', function() {
 
     agent
       .get('/error')
-      .expect('Connection', 'Connection: close')
+      .expect('Connection', 'close')
       .expect('X-Worker', '1')
       .expect(500, function(err) {
         if (err) {
@@ -84,7 +84,7 @@ describe('closeSockets = false', function() {
           .get('/')
           .agent(pool)
           .expect('X-Worker', '1')
-          .expect('Connection', 'Connection: close')
+          .expect('Connection', 'close')
           .expect('Please try again later; this server is shutting down')
           .expect(503, function(err) {
             if (err) {
