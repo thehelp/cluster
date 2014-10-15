@@ -1,4 +1,4 @@
-// index
+// util
 // ========
 // Some basic cross-project utility functions
 
