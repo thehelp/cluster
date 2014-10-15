@@ -49,7 +49,7 @@ function GracefulExpress(options) {
   this.closed = false;
   this.serverClosed = false;
 
-  this.requests = [];
+  this.responses = [];
   this.sockets = [];
   this.activeSockets = [];
 
@@ -98,7 +98,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 
   this._addSocket(req.socket);
   this._addActiveSocket(req.socket);
-  this._addReponse(res);
+  this._addResponse(res);
 
   //bind to all three to be completely sure; handler only called once
   var finish = util.once(function() {
@@ -110,7 +110,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   res.on('end', finish);
 
   if (this.closed) {
-    this._closeConnection(res);
+    this._preventKeepAlive(res);
   }
   if (this.closed && this.rejectDuringShutdown) {
     var err = new Error('Server is shutting down; rejecting request');
@@ -140,7 +140,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   3. and passes the error to the registered express error handler
 */
 GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
-  this._closeConnection(res);
+  this._preventKeepAlive(res);
 
   //Don't want the entire domain object to pollute the log entry for this error
   delete err.domain;
@@ -160,8 +160,9 @@ GracefulExpress.prototype._onClose = function _onClose() {
 // `_onShutdown` runs when `Graceful's 'shutdown' event fires. It first http server to
 // stop accepting new connections. Unfortunately, this isn't enough, as it will continue
 // to service existing requests and already-existing keepalive connections.
-// `_closeResponses` tells all current requests to close the connection after that request
-// is complete. `_closeInactiveSockets` shuts down all idle keepalive connections.
+// `_closeConnAfterResponses` tells all current requests to close the connection after
+// that request is complete. `_closeInactiveSockets` shuts down all idle keepalive
+// connections.
 GracefulExpress.prototype._onShutdown = function _onShutdown() {
   this.closed = true;
 
@@ -172,7 +173,7 @@ GracefulExpress.prototype._onShutdown = function _onShutdown() {
     catch (e) {}
   }
 
-  this._closeResponses();
+  this._closeConnAfterResponses();
 
   if (this.closeSockets) {
     this._closeInactiveSockets();
@@ -189,16 +190,16 @@ GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
     return this.serverClosed;
   }
 
-  return this.requests.length === 0;
+  return this.responses.length === 0;
 };
 
 // Helper methods
 // ========
 
-// `_closeConnection` tells any keepalive connection to close. Again, unfortunately not
-// enough because some keepalive connections will not make any requests as we're shutting
-// down.
-GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
+// `_preventKeepAlive` tells any connection to close at the end of the current request.
+// Unfortunately not enough because some keepalive connections will not make any requests
+// as we're shutting down.
+GracefulExpress.prototype._preventKeepAlive = function _preventKeepAlive(res) {
   res.shouldKeepAlive = false;
 };
 
@@ -210,28 +211,28 @@ GracefulExpress.prototype._setOption = function _setOption(name, options, defaul
   }
 };
 
-// Request tracking
+// Response tracking
 // ========
 
-// `_closeResponses` calls `_closeConnection` on every active request
-GracefulExpress.prototype._closeResponses = function _closeResponses() {
-  for (var i = 0, max = this.requests.length; i < max; i += 1) {
-    var req = this.requests[i];
-    this._closeConnection(req);
+// `_closeConnAfterResponses` calls `_preventKeepAlive` on every active request
+GracefulExpress.prototype._closeConnAfterResponses = function _closeConnAfterResponses() {
+  for (var i = 0, max = this.responses.length; i < max; i += 1) {
+    var res = this.responses[i];
+    this._preventKeepAlive(res);
   }
 };
 
-// `_addReponse` increments the in-progress request count.
-GracefulExpress.prototype._addReponse = function _addReponse(req) {
-  this.requests.push(req);
+// `_addResponse` adds `res` to the list of in-progress responses
+GracefulExpress.prototype._addResponse = function _addResponse(res) {
+  this.responses.push(res);
 };
 
-// `_removeResponse` decrements the in-progress request count.
-GracefulExpress.prototype._removeResponse = function _removeResponse(req) {
-  for (var i = 0, max = this.requests.length; i < max; i += 1) {
-    var element = this.requests[i];
-    if (element === req) {
-      this.requests = this.requests.slice(0, i).concat(this.requests.slice(i + 1));
+// `_removeResponse` removes `res` from the list of in-progress responses
+GracefulExpress.prototype._removeResponse = function _removeResponse(res) {
+  for (var i = 0, max = this.responses.length; i < max; i += 1) {
+    var element = this.responses[i];
+    if (element === res) {
+      this.responses = this.responses.slice(0, i).concat(this.responses.slice(i + 1));
       return;
     }
   }
