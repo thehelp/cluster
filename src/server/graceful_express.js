@@ -47,24 +47,14 @@ function GracefulExpress(options) {
 
   this.server = null;
   this.closed = false;
+
   this.requests = [];
-
-  this.rejectDuringShutdown = options.rejectDuringShutdown;
-  if (typeof this.rejectDuringShutdown === 'undefined') {
-    this.rejectDuringShutdown = true;
-  }
-
   this.sockets = [];
   this.activeSockets = [];
-  this.closeSockets = options.closeSockets;
-  if (typeof this.closeSockets === 'undefined') {
-    this.closeSockets = true;
-  }
 
-  this.development = options.development;
-  if (typeof this.development === 'undefined') {
-    this.development = (process.env.NODE_ENV === 'development');
-  }
+  this._setOption('rejectDuringShutdown', options, true);
+  this._setOption('closeSockets', options, true);
+  this._setOption('development', options, process.env.NODE_ENV === 'development');
 
   //both here for symmetry; unlikely that both of these are avalable on construction
   this.setGraceful(options.graceful || Graceful.instance);
@@ -198,6 +188,14 @@ GracefulExpress.prototype._stopServer = function _stopServer() {
       this.server.close();
     }
     catch (e) {}
+  }
+};
+
+// `_setOption` makes dealing with undefined boolean options a bit easier.
+GracefulExpress.prototype._setOption = function _setOption(name, options, defaultVal) {
+  this[name] = options[name];
+  if (typeof this[name] === 'undefined') {
+    this[name] = defaultVal;
   }
 };
 
