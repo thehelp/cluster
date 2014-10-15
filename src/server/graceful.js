@@ -60,7 +60,7 @@ function Graceful(options) {
 
   this.process = options.process || process;
   this.cluster = options.cluster || cluster;
-  this.log = options.log || require('winston');
+  this.log = options.log || localUtil.logShim('thehelp-cluster:graceful');
 
   this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();

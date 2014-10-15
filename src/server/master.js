@@ -8,6 +8,7 @@
 var cluster = require('cluster');
 
 var Graceful = require('./graceful');
+var util = require('./util');
 
 /*
 The `constructor` has no required parameters.   Optional parameters:
@@ -32,7 +33,7 @@ function Master(options) {
   this.pollInterval = options.pollInterval || 500;
   this.killTimeout = options.killTimeout || 7000;
   this.numberWorkers = options.numberWorkers ||
-    parseInt(process.env.THEHELP_NUMBER_WORKERS) || 1;
+    parseInt(process.env.THEHELP_NUMBER_WORKERS, 10) || 1;
 
   this.workers = {};
   this.closed = false;
@@ -40,7 +41,7 @@ function Master(options) {
   this.cluster = options.cluster || cluster;
   this.cluster.on('disconnect', this._restartWorker.bind(this));
 
-  this.log = options.log || require('winston');
+  this.log = options.log || util.logShim('thehelp-cluster:master');
   this.setGraceful(options.graceful || Graceful.instance);
 
   if (Master.instance) {

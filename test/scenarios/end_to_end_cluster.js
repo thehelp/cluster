@@ -19,23 +19,21 @@ var log = {
 };
 
 var cluster = require('../../src/server/index');
+cluster.util.logger = log;
+
 var ld = require('thehelp-last-ditch');
 
 var lastDitch = new ld.LastDitch({
-  targets: ['stderr'],
-  log: log
+  targets: ['stderr']
 });
 
 cluster.Graceful.start({
-  messenger: lastDitch.go,
-  log: log
+  messenger: lastDitch.go
 });
 
 cluster({
-  log: log,
   masterOptions: {
-    spinTimeout: 100,
-    log: log
+    spinTimeout: 100
   },
   worker: function() {
     require('./end_to_end_server');

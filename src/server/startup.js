@@ -39,7 +39,7 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
-  this.log = options.log || require('winston');
+  this.log = options.log || util.logShim('thehelp-cluster:startup');
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
   this.logPrefix = util.getLogPrefix();
 
