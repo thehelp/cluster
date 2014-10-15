@@ -47,6 +47,7 @@ function GracefulExpress(options) {
 
   this.server = null;
   this.closed = false;
+  this.serverClosed = false;
 
   this.requests = [];
   this.sockets = [];
@@ -70,28 +71,19 @@ module.exports = GracefulExpress;
 
 // `setGraceful` is a way to provide the reference after construction.
 GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
-  var _this = this;
-
   if (graceful) {
     this.graceful = graceful;
-
-    this.graceful.on('shutdown', function domainStopServer() {
-      _this._stopServer();
-      if (_this.closeSockets) {
-        _this._closeInactiveSockets();
-        _this._closeResponses();
-      }
-    });
-
-    this.graceful.addCheck(function domainActiveRequests() {
-      return _this.development || _this.requests.length === 0;
-    });
+    this.graceful.on('shutdown', this._onShutdown.bind(this));
+    this.graceful.addCheck(this._isReadyForShutdown.bind(this));
   }
 };
 
 // `setServer` is the more common way to supply an http server.
 GracefulExpress.prototype.setServer = function setServer(server) {
-  this.server = server;
+  if (server) {
+    this.server = server;
+    this.server.on('close', this._onClose.bind(this));
+  }
 };
 
 // `middleware` should be added as a global middleware, before any handler that might stop
@@ -137,15 +129,8 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   d.run(next);
 };
 
-// Helper functions
+// Event handlers
 // ========
-
-// `_closeConnection` tells any keepalive connection to close. Again, unfortunately not
-// enough because some keepalive connections will not make any requests as we're shutting
-// down.
-GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
-  res.shouldKeepAlive = false;
-};
 
 /*
 `_onError` is the method called when a request domain catches an error. It
@@ -167,10 +152,17 @@ GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
   next(err);
 };
 
-// `_stopServer` tells the http server to stop accepting new connections. Unfortunately,
-// this isn't enough, as it will continue to service new requests made on already-existing
-// keepalive connections. Hence all the socket and 'Connection: close'-related code above.
-GracefulExpress.prototype._stopServer = function _stopServer() {
+// `_onClose` runs with the http server's 'close' event fires
+GracefulExpress.prototype._onClose = function _onClose() {
+  this.serverClosed = true;
+};
+
+// `_onShutdown` runs when `Graceful's 'shutdown' event fires. It first http server to
+// stop accepting new connections. Unfortunately, this isn't enough, as it will continue
+// to service existing requests and already-existing keepalive connections.
+// `_closeResponses` tells all current requests to close the connection after that request
+// is complete. `_closeInactiveSockets` shuts down all idle keepalive connections.
+GracefulExpress.prototype._onShutdown = function _onShutdown() {
   this.closed = true;
 
   if (this.server) {
@@ -179,6 +171,35 @@ GracefulExpress.prototype._stopServer = function _stopServer() {
     }
     catch (e) {}
   }
+
+  this._closeResponses();
+
+  if (this.closeSockets) {
+    this._closeInactiveSockets();
+  }
+};
+
+// `_isReadyForShutdown` lets `Graceful` know when we're ready for `process.exit()`
+GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
+  if (this.development) {
+    return true;
+  }
+
+  if (this.closeSockets) {
+    return this.serverClosed;
+  }
+
+  return this.requests.length === 0;
+};
+
+// Helper methods
+// ========
+
+// `_closeConnection` tells any keepalive connection to close. Again, unfortunately not
+// enough because some keepalive connections will not make any requests as we're shutting
+// down.
+GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
+  res.shouldKeepAlive = false;
 };
 
 // `_setOption` makes dealing with undefined boolean options a bit easier.
@@ -189,7 +210,7 @@ GracefulExpress.prototype._setOption = function _setOption(name, options, defaul
   }
 };
 
-// Request management
+// Request tracking
 // ========
 
 // `_closeResponses` calls `_closeConnection` on every active request
@@ -216,7 +237,7 @@ GracefulExpress.prototype._removeResponse = function _removeResponse(req) {
   }
 };
 
-// Socket Management
+// Socket tracking
 // =======
 
 // `_closeInactiveSockets` destroys all inactive sockets

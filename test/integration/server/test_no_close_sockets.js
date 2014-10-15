@@ -26,16 +26,6 @@ describe('closeSockets = false', function() {
     setTimeout(done, 1000);
   });
 
-  after(function(done) {
-    this.timeout(10000);
-
-    child.on('close', function() {
-      done();
-    });
-
-    child.kill();
-  });
-
   it('root returns', function(done) {
     agent
       .get('/')
@@ -95,6 +85,62 @@ describe('closeSockets = false', function() {
 
             done();
           });
+      });
+  });
+
+  it('second worker starts up, starts keepalive connection', function(done) {
+    this.timeout(5000);
+
+    agent
+      .get('/')
+      .agent(pool)
+      .expect('X-Worker', '2')
+      .expect('Connection', 'keep-alive')
+      .expect(200, done);
+  });
+
+  it('socket not closed, keepalive doesn\'t keep server from going down', function(done) {
+    this.timeout(10000);
+
+    // we don't make a request on the keepalive connection via .agent(pool), so that
+    //   keepalive connection is just hanging around...
+
+    var orig = done;
+    done = serverUtil.once(function() {
+      child.on('close', function() {
+        expect(child.stdoutResult).not.to.match(/Killing process now/);
+
+        orig();
+      });
+
+      child.kill();
+    });
+
+    // long-running task still gets connection:close, even though error comes after
+    agent
+      .get('/delay')
+      .expect('X-Worker', '2')
+      .expect('Connection', 'close')
+      .expect(200, function(err) {
+        if (err) {
+          err.message += ' - /delay request';
+          console.log(err);
+          return done(err);
+        }
+
+        done();
+      });
+
+    agent
+      .get('/error')
+      .expect('Connection', 'close')
+      .expect('X-Worker', '2')
+      .expect(500, function(err) {
+        if (err) {
+          err.message += ' - /error request';
+          console.log(err);
+          return done(err);
+        }
       });
   });
 
