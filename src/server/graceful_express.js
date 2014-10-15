@@ -5,8 +5,8 @@ Working with the `Graceful` class, provides full graceful shutdown for an
 `express`-based server:
 
 1. Each request is wrapped a domain to ensure that even if an exception is thrown in a
-callback the client receives a response. If found, your `Graceful` instance is notified of
-the error, and starts the shutdown process.
+callback, the client receives a response. If found, your `Graceful` instance is notified
+of the error, and starts the shutdown process.
 2. It keeps track of all active requests so we know when it is safe to shut down.
 3. On shutdown, it calls `server.close()` to stop accepting new connections, destroys
 all inactive sockets (idle keepalive connections), and sets 'Connection: close' on all
@@ -38,7 +38,7 @@ behind requests passing through its `middleware()` function, marking them as ina
 the request ends. Those sockets will be closed when the server shuts down. This feature is
 designed to close down idle keepalive connections.
 + `rejectDuringShutdown` - default true. If true, when the server is shutting down, any
-request that leaks through results in an `Error` with `statusCode = 503` be passed to
+request that leaks through results in an `Error` with `statusCode = 503` passed to
 your Express error handler.
 
 */
@@ -108,7 +108,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   this._addActiveSocket(req.socket);
   this._addReponse(res);
 
-  // bind to all three to be completely sure; handler only called once
+  //bind to all three to be completely sure; handler only called once
   var finish = util.once(function() {
     _this._removeActiveSocket(req.socket);
     _this._removeResponse(res);
@@ -140,7 +140,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 // Helper functions
 // ========
 
-// `_closeConnection` tells any keepalive collection to close. Again, unfortunately not
+// `_closeConnection` tells any keepalive connection to close. Again, unfortunately not
 // enough because some keepalive connections will not make any requests as we're shutting
 // down.
 GracefulExpress.prototype._closeConnection = function _closeConnection(res) {
