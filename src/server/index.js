@@ -14,6 +14,7 @@ var start = function createStartupAndStart(options) {
   var startup = new Startup(options);
   startup.setupLogs();
   startup.start();
+  return startup;
 };
 
 // The four main classes are available as keys on that main function.
