@@ -1,7 +1,21 @@
-// # Graceful
-// Encapsulates everything needed to shut down a worker process without interrupting
-// anything important, even active requests on an http server.
+/*
+# Graceful
 
+Encapsulates everything needed to shut down a worker process without interrupting
+anything important, even active requests on an http server.
+
+There are three major ways to interact with an instance of this class:
+
+1. Kick off shutdown by calling `shutdown()` with or without the error object that
+initiated the shutdown.
+2. Register for notification on shutdown with `on('shutdown', fn)`. This is a good time
+to close all open resources, do last bits of work.
+3. Register a 'check' function with `addCheck(fn)` to delay shutdown if shutdown work
+is still happening. Return true if we're okay to stop the process, false if work is still
+going on. By default you only have five seconds before the process will be terminated even
+if you're not ready.
+
+*/
 'use strict';
 
 var cluster = require('cluster');
@@ -22,9 +36,8 @@ process down forcefully
 + `log` - an object that looks like `winston`, allowing you to use your own logging
 system: `info`, `warn` and `error` keys with the signature `function(string)`.
 
-_Note: it's recommended to create an instance of this class once per process, since it
-listens for a number of process-level events, making itself the handler for them. See
-`_setupListeners()` below._
+_Note: it's recommended to create an instance of this class just once per process, since
+it listens for a number of process-level events. See `_setupListeners()` below._
 */
 function Graceful(options) {
   /*jshint maxcomplexity: 9 */
@@ -64,7 +77,8 @@ util.inherits(Graceful, EventEmitter);
 module.exports = Graceful;
 
 // A quick helper function, since other classes use `Graceful.instance` to find their
-// reference to your created `Graceful` object.
+// reference to your created `Graceful` object; you don't have to keep the instance
+// around.
 Graceful.start = function start(options) {
   return new Graceful(options);
 };
@@ -98,7 +112,8 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
 };
 
 // `addCheck` allows you to provide a callback you can use to delay `process.exit()` until
-// you are finished doing something.
+// you are finished doing something. Return something truthy to signal your readiness for
+// `process.exit()`.
 Graceful.prototype.addCheck = function addCheck(check) {
   this.checks.push(check);
 };
@@ -107,7 +122,7 @@ Graceful.prototype.addCheck = function addCheck(check) {
 // ========
 
 // `_sendError` uses `this.messenger` to save/send the error provided to `shutdown()`. It
-// it sets `this.sending` to `true` so we won't take the process down before the call is
+// it sets `this.sending = true` so we won't take the process down before the call is
 // complete.
 Graceful.prototype._sendError = function _sendError(err, info) {
   var _this = this;
@@ -180,9 +195,9 @@ Graceful.prototype._clearTimers = function _clearTimers() {
 `_finalLog` makes a final log entry then takes down the process when that log call is
 complete.
 
-Why so complex? To ensure that any `winston` file transports are properly flushed. You'll
+_Why so complex? To ensure that any `winston` file transports are properly flushed. You'll
 note without this, if `_die()` is called directly in `_exit()` above, the main integration
-tests will result in log files without the final 'about to exit with code X' entries.
+tests will result in log files without the final 'about to exit with code X' entries._
 */
 Graceful.prototype._finalLog = function _finalLog(type, message) {
   var _this = this;
