@@ -89,19 +89,9 @@ GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
   }
 };
 
-// `setServer` is the more common way to supply an http server to this class.
+// `setServer` is the more common way to supply an http server.
 GracefulExpress.prototype.setServer = function setServer(server) {
-  var _this = this;
-
-  if (server) {
-    this.server = server;
-
-    this.server.on('close', function gracefulShutdown() {
-      if (_this.graceful) {
-        _this.graceful.shutdown();
-      }
-    });
-  }
+  this.server = server;
 };
 
 // `middleware` should be added as a global middleware, before any handler that might stop
