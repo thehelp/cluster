@@ -7,7 +7,6 @@ core.env.merge(path.join(__dirname, '../../env.json'));
 core.logs.setupConsole();
 
 var fs = require('fs');
-var http = require('http');
 var cluster = require('cluster');
 
 var winston = require('winston');
@@ -93,10 +92,9 @@ app.use(function(err, req, res, next) {
   res.send(message);
 });
 
-var server = http.createServer(app);
-gracefulExpress.setServer(server);
-server.listen(3000);
-winston.warn('Worker listening on port 3000');
+var server = gracefulExpress.listen(app, 3000, function() {
+  winston.warn('Worker listening on port 3000');
+});
 
 module.exports = {
   server: server,

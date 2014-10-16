@@ -19,6 +19,7 @@ calling your Express error handler with an `Error` with `statusCode = 503`
 
 var domain = require('domain');
 var util = require('./util');
+var http = require('http');
 
 var Graceful = require('./graceful');
 
@@ -29,7 +30,7 @@ The `constructor` has some optional parameters:
 will be called with any unhandled error encountered. Default is `Graceful.instance`, so if
 you've created an instance in this process already, it will be found automatically.
 + `server` - the http server, though unlikely to be available on construction of this
-class. More likely you'll use `setServer()` later.
+class. More likely you'll use `listen()` or `setServer()` later - see below.
 + `development` - if set to true, will prevent domains from being set up for every
 request, enabling in-process testing of your endpoints, as is often done with `supertest`.
 Defaults to `process.env.NODE_ENV === 'development'`
@@ -48,7 +49,7 @@ function GracefulExpress(options) {
 
   this._setOption('development', options, process.env.NODE_ENV === 'development');
 
-  //both here for symmetry; unlikely that both of these are avalable on construction
+  //both here for symmetry; unlikely that both of these are available on construction
   this.setGraceful(options.graceful || Graceful.instance);
   this.setServer(options.server);
 
@@ -60,21 +61,17 @@ module.exports = GracefulExpress;
 // Public Methods
 // ========
 
-// `setGraceful` is a way to provide the reference after construction.
-GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
-  if (graceful) {
-    this.graceful = graceful;
-    this.graceful.on('shutdown', this._onShutdown.bind(this));
-    this.graceful.addCheck(this._isReadyForShutdown.bind(this));
-  }
-};
+// `listen` is a helper method to create an http server, wire it up properly, and start
+// it listening on your desired interface. Returns the created server.
+GracefulExpress.prototype.listen = function listen(app) {
+  var args = Array.prototype.slice.call(arguments, 1);
 
-// `setServer` is the more common way to supply an http server.
-GracefulExpress.prototype.setServer = function setServer(server) {
-  if (server) {
-    this.server = server;
-    this.server.on('close', this._onClose.bind(this));
-  }
+  var server = http.createServer(app);
+  this.setServer(server);
+
+  server.listen.apply(server, args);
+
+  return server;
 };
 
 // `middleware` should be added as a global middleware, before any handler that might stop
@@ -117,6 +114,23 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   });
 
   d.run(next);
+};
+
+// `setGraceful` can be used to provide a `Graceful` instance after construction.
+GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
+  if (graceful) {
+    this.graceful = graceful;
+    this.graceful.on('shutdown', this._onShutdown.bind(this));
+    this.graceful.addCheck(this._isReadyForShutdown.bind(this));
+  }
+};
+
+// `setServer` can be used to set `this.server` if you'd like to create it yourself.
+GracefulExpress.prototype.setServer = function setServer(server) {
+  if (server) {
+    this.server = server;
+    this.server.on('close', this._onClose.bind(this));
+  }
 };
 
 // Event handlers
