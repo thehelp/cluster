@@ -33,10 +33,6 @@ class. More likely you'll use `setServer()` later.
 + `development` - if set to true, will prevent domains from being set up for every
 request, enabling in-process testing of your endpoints, as is often done with `supertest`.
 Defaults to `process.env.NODE_ENV === 'development'`
-+ `closeSockets` - default true. If true, `GracefulExpress` will keep track of all sockets
-behind requests passing through its `middleware()` function, marking them as inactive when
-the request ends. Those sockets will be closed when the server shuts down. This feature is
-designed to close down idle keepalive connections.
 
 */
 function GracefulExpress(options) {
@@ -50,7 +46,6 @@ function GracefulExpress(options) {
   this.sockets = [];
   this.activeSockets = [];
 
-  this._setOption('closeSockets', options, true);
   this._setOption('development', options, process.env.NODE_ENV === 'development');
 
   //both here for symmetry; unlikely that both of these are avalable on construction
@@ -169,10 +164,7 @@ GracefulExpress.prototype._onShutdown = function _onShutdown() {
   }
 
   this._closeConnAfterResponses();
-
-  if (this.closeSockets) {
-    this._closeInactiveSockets();
-  }
+  this._closeInactiveSockets();
 };
 
 // `_isReadyForShutdown` lets `Graceful` know when we're ready for `process.exit()`
@@ -181,11 +173,7 @@ GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
     return true;
   }
 
-  if (this.closeSockets) {
-    return this.serverClosed;
-  }
-
-  return this.responses.length === 0;
+  return this.serverClosed;
 };
 
 // Helper methods
@@ -238,12 +226,6 @@ GracefulExpress.prototype._removeResponse = function _removeResponse(res) {
 
 // `_closeInactiveSockets` destroys all inactive sockets
 GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets() {
-  this.sockets = this.sockets || [];
-
-  if (!this.closeSockets) {
-    return;
-  }
-
   var inactive = this._getInactiveSockets();
 
   for (var i = 0, max = inactive.length; i < max; i += 1) {
@@ -255,10 +237,6 @@ GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets
 // `_getInactiveSockets` builds a list of inactive sockets by looping through all
 // `this.sockets`, ensuring that they are not present in `this.activeSockets`
 GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
-  if (!this.closeSockets) {
-    return;
-  }
-
   var inactive = [];
 
   for (var i = 0, iMax = this.sockets.length; i < iMax; i += 1) {
@@ -285,19 +263,11 @@ GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
 // `_addActiveSocket` adds provided socket to `this.activeSockets`, with no
 // duplicate-checking
 GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
-  if (!this.closeSockets) {
-    return;
-  }
-
   this.activeSockets.push(socket);
 };
 
 // `_removeActiveSocket` removes provided socket from `this.activeSockets`
 GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(socket) {
-  if (!this.closeSockets) {
-    return;
-  }
-
   for (var i = 0, max = this.activeSockets.length; i < max; i += 1) {
     var element = this.activeSockets[i];
 
@@ -313,10 +283,6 @@ GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(soc
 // `_addSocket` adds provided socket to `this.sockets` if it isn't already in the list
 GracefulExpress.prototype._addSocket = function _addSocket(socket) {
   var _this = this;
-
-  if (!this.closeSockets) {
-    return;
-  }
 
   for (var i = 0, max = this.sockets.length; i < max; i += 1) {
     var element = this.sockets[i];
@@ -335,10 +301,6 @@ GracefulExpress.prototype._addSocket = function _addSocket(socket) {
 
 // `_removeSocket` removes provided socket from `this.sockets`
 GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
-  if (!this.closeSockets) {
-    return;
-  }
-
   for (var i = 0, max = this.sockets.length; i < max; i += 1) {
     var element = this.sockets[i];
     if (element === socket) {

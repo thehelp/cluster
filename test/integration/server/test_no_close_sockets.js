@@ -9,7 +9,7 @@ var util = require('./util');
 var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
-describe('closeSockets = false', function() {
+describe('keepalive sockets not closed', function() {
   var agent, child, pool;
 
   before(function(done) {
@@ -99,7 +99,7 @@ describe('closeSockets = false', function() {
       .expect(200, done);
   });
 
-  it('socket not closed, keepalive doesn\'t keep server from going down', function(done) {
+  it('socket not closed, keepalive keeps server from going down', function(done) {
     this.timeout(10000);
 
     // we don't make a request on the keepalive connection via .agent(pool), so that
@@ -108,7 +108,7 @@ describe('closeSockets = false', function() {
     var orig = done;
     done = serverUtil.once(function() {
       child.on('close', function() {
-        expect(child.stdoutResult).not.to.match(/Killing process now/);
+        expect(child.stdoutResult).to.match(/Killing process now/);
 
         orig();
       });

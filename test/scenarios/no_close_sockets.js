@@ -15,6 +15,6 @@ cluster({
   },
   worker: function() {
     var e2e = require('./end_to_end_server');
-    e2e.gracefulExpress.closeSockets = false;
+    e2e.gracefulExpress._closeInactiveSockets = function() {};
   }
 });
