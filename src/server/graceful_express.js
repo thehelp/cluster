@@ -37,9 +37,6 @@ Defaults to `process.env.NODE_ENV === 'development'`
 behind requests passing through its `middleware()` function, marking them as inactive when
 the request ends. Those sockets will be closed when the server shuts down. This feature is
 designed to close down idle keepalive connections.
-+ `rejectDuringShutdown` - default true. If true, when the server is shutting down, any
-request that leaks through results in an `Error` with `statusCode = 503` passed to
-your Express error handler.
 
 */
 function GracefulExpress(options) {
@@ -53,7 +50,6 @@ function GracefulExpress(options) {
   this.sockets = [];
   this.activeSockets = [];
 
-  this._setOption('rejectDuringShutdown', options, true);
   this._setOption('closeSockets', options, true);
   this._setOption('development', options, process.env.NODE_ENV === 'development');
 
@@ -111,8 +107,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 
   if (this.closed) {
     this._preventKeepAlive(res);
-  }
-  if (this.closed && this.rejectDuringShutdown) {
+
     var err = new Error('Server is shutting down; rejecting request');
     err.statusCode = 503;
     err.text = 'Please try again later; this server is shutting down';
