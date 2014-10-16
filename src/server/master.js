@@ -8,7 +8,7 @@
 var cluster = require('cluster');
 
 var Graceful = require('./graceful');
-var util = require('./util');
+var logShim = require('./log_shim');
 
 /*
 The `constructor` has no required parameters.   Optional parameters:
@@ -41,7 +41,7 @@ function Master(options) {
   this.cluster = options.cluster || cluster;
   this.cluster.on('disconnect', this._restartWorker.bind(this));
 
-  this.log = options.log || util.logShim('thehelp-cluster:master');
+  this.log = options.log || logShim('thehelp-cluster:master');
   this.setGraceful(options.graceful || Graceful.instance);
 
   if (Master.instance) {

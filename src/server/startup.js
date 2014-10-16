@@ -12,6 +12,7 @@ var core = require('thehelp-core');
 
 var Graceful = require('./graceful');
 var util = require('./util');
+var logShim = require('./log_shim');
 
 /*
 The `constructor` requires only one parameter `worker`, a callback which
@@ -39,7 +40,7 @@ function Startup(options) {
     throw new Error('Need to provide a worker callback!');
   }
 
-  this.log = options.log || util.logShim('thehelp-cluster:startup');
+  this.log = options.log || logShim('thehelp-cluster:startup');
   this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
   this.logPrefix = util.getLogPrefix();
 

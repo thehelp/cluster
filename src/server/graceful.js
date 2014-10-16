@@ -23,6 +23,7 @@ var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
 var localUtil = require('./util');
+var logShim = require('./log_shim');
 
 /*
 The `constructor` has no required parameters. Optional parameters:
@@ -60,7 +61,7 @@ function Graceful(options) {
 
   this.process = options.process || process;
   this.cluster = options.cluster || cluster;
-  this.log = options.log || localUtil.logShim('thehelp-cluster:graceful');
+  this.log = options.log || logShim('thehelp-cluster:graceful');
 
   this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();

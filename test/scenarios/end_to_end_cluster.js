@@ -19,7 +19,11 @@ var log = {
 };
 
 var cluster = require('../../src/server/index');
-cluster.util.logger = log;
+
+var registry = global['thehelp-cluster'];
+Object.keys(registry).forEach(function(version) {
+  registry[version].logger = log;
+});
 
 var ld = require('thehelp-last-ditch');
 
