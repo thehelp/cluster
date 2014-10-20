@@ -23,7 +23,7 @@ describe('development scenarios: in-process testing', function() {
   });
 
   it('does not shut down gracefully', function() {
-    expect(child.result).to.contain('logger.info(result.toString());')
+    expect(child.result).to.contain('logger.info(result.toString());');
 
     expect(child.result).not.to.match(/gracefully shutting down/);
     expect(child.result).not.to.match(/pre-exit/);

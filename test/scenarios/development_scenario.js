@@ -19,14 +19,14 @@ var request = supertest(e2e.app);
 
 request
   .get('/')
-  .expect(200, function(err, res) {
+  .expect(200, function(err) {
     if (err) {
       throw err;
     }
 
     request
       .get('/error')
-      .expect(500, function(err, res) {
+      .expect(500, function(err) {
         if (err) {
           throw err;
         }
