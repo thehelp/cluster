@@ -191,5 +191,47 @@ describe('Graceful', function() {
       graceful._finalLog('info', 'log string');
     });
   });
+
+  describe('#_die', function() {
+    it('calls process.exit() with code 0 if no error', function() {
+      graceful.process = {
+        exit: sinon.stub()
+      };
+      graceful._die();
+
+      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+
+      var call = graceful.process.exit.getCall(0);
+      expect(call).to.have.property('args').that.deep.equal([0]);
+    });
+
+    it('calls process.exit() with code 1 if error', function() {
+      graceful.process = {
+        exit: sinon.stub()
+      };
+      graceful.error = {};
+      graceful._die();
+
+      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+
+      var call = graceful.process.exit.getCall(0);
+      expect(call).to.have.property('args').that.deep.equal([1]);
+    });
+
+    it('calls process.exit() with exitCode from error', function() {
+      graceful.process = {
+        exit: sinon.stub()
+      };
+      graceful.error = {
+        exitCode: 4
+      };
+      graceful._die();
+
+      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+
+      var call = graceful.process.exit.getCall(0);
+      expect(call).to.have.property('args').that.deep.equal([4]);
+    });
+  });
 });
 

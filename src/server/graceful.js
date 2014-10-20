@@ -220,7 +220,7 @@ Graceful.prototype._finalLog = function _finalLog(type, message) {
 // `_die` calls `process._exit()` with the right error code based on `this.error` (set in
 // `shutdown()`).
 Graceful.prototype._die = function _die() {
-  var code = this.error ? this.error.code || 1 : 0;
+  var code = this.error ? this.error.exitCode || 1 : 0;
   this.process.exit(code);
 };
 
