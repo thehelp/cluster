@@ -12,15 +12,18 @@ var cluster = require('../../src/server');
 cluster.setupLogs();
 cluster.Graceful.start();
 
+var logShim = require('thehelp-log-shim');
+var logger = logShim('crash-worker');
+
 cluster({
   masterOptions: {
     numberWorkers: 2
   },
   worker: function() {
-    console.log('starting worker...');
+    logger.warn('starting worker...');
 
     fs.readFile('randomness', function(err, file) {
-      console.log(file.stat);
+      logger.info(file.stat);
     });
   }
 });

@@ -10,6 +10,9 @@ var util = require('./util');
 var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
+var logShim = require('thehelp-log-shim');
+var logger = logShim('end-to-end:test');
+
 describe('end-to-end', function() {
   var agent, child, logFiles, pool;
 
@@ -130,7 +133,7 @@ describe('end-to-end', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /longDelay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
       });
@@ -144,7 +147,7 @@ describe('end-to-end', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -160,7 +163,7 @@ describe('end-to-end', function() {
             .expect(200, function(err) {
               if (err) {
                 err.message += ' - / request, on second pool';
-                console.log(err);
+                logger.error(err);
                 return done(err);
               }
             });
@@ -174,7 +177,7 @@ describe('end-to-end', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -209,7 +212,7 @@ describe('end-to-end', function() {
           .expect(200, function(err) {
             if (err) {
               err.message += ' - / keepalive request to worker 3';
-              console.log(err);
+              logger.error(err);
               return done(err);
             }
 
@@ -224,7 +227,7 @@ describe('end-to-end', function() {
           .expect(200, function(err) {
             if (err) {
               err.message += ' - / new request on worker 3';
-              console.log(err);
+              logger.error(err);
               return done(err);
             }
 
@@ -265,7 +268,7 @@ describe('end-to-end', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -279,7 +282,7 @@ describe('end-to-end', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
       });
@@ -297,7 +300,7 @@ describe('end-to-end', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -311,7 +314,7 @@ describe('end-to-end', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
       });

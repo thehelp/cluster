@@ -9,6 +9,10 @@ var util = require('./util');
 var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
+var logShim = require('thehelp-log-shim');
+var logger = logShim('no-close-sockets:test');
+
+
 describe('keepalive sockets not closed', function() {
   var agent, child, pool;
 
@@ -49,7 +53,7 @@ describe('keepalive sockets not closed', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -63,7 +67,7 @@ describe('keepalive sockets not closed', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -79,7 +83,7 @@ describe('keepalive sockets not closed', function() {
           .expect(503, function(err) {
             if (err) {
               err.message += ' - / keepalive request to worker 3';
-              console.log(err);
+              logger.error(err);
               return done(err);
             }
 
@@ -124,7 +128,7 @@ describe('keepalive sockets not closed', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
 
@@ -138,7 +142,7 @@ describe('keepalive sockets not closed', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          console.log(err);
+          logger.error(err);
           return done(err);
         }
       });

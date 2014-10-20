@@ -8,6 +8,9 @@ core.env.merge(path.join(__dirname, '../../env.json'));
 var cluster = require('../../src/server');
 cluster.setupLogs();
 
+var logShim = require('thehelp-log-shim');
+var logger = logShim('hanging-workers');
+
 cluster({
   master: function() {
     cluster.Graceful.start();
@@ -25,7 +28,7 @@ cluster({
     app.listen(3000);
 
     process.on('SIGTERM', function() {
-      console.log('Got SIGTERM, not doing anything about it...');
+      logger.warn('Got SIGTERM, not doing anything about it...');
     });
   }
 });

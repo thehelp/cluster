@@ -9,7 +9,8 @@ core.logs.setupConsole();
 var fs = require('fs');
 var cluster = require('cluster');
 
-var winston = require('winston');
+var logShim = require('thehelp-log-shim');
+var logger = logShim('end-to-end:server');
 var express = require('express');
 var morgan = require('morgan');
 
@@ -60,7 +61,7 @@ app.get('/delayWrite', function(req, res) {
 
 app.get('/error', function() {
   fs.readFile('something', function(err, result) {
-    winston.info(result.toString());
+    logger.info(result.toString());
   });
 });
 
@@ -81,7 +82,7 @@ app.use(function(req, res) {
 
 app.use(function(err, req, res, next) {
   /*jshint unused: false */
-  winston.error(req.url + ': ' + core.breadcrumbs.toString(err));
+  logger.error(req.url + ': ' + core.breadcrumbs.toString(err));
   var message = err.text || ('error! ' + err.stack);
 
   res.type('txt');
@@ -90,7 +91,7 @@ app.use(function(err, req, res, next) {
 });
 
 var server = gracefulExpress.listen(app, 3000, function() {
-  winston.warn('Worker listening on port 3000');
+  logger.warn('Worker listening on port 3000');
 });
 
 module.exports = {
