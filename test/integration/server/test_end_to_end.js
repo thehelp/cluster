@@ -1,7 +1,6 @@
 
 'use strict';
 
-var fs = require('fs');
 var path = require('path');
 
 var supertest = require('supertest');
@@ -14,7 +13,7 @@ var logShim = require('thehelp-log-shim');
 var logger = logShim('end-to-end:test');
 
 describe('end-to-end', function() {
-  var agent, child, logFiles, pool;
+  var agent, child, pool;
 
   before(function(done) {
     // https://github.com/node-modules/agentkeepalive#new-agentoptions
@@ -46,24 +45,6 @@ describe('end-to-end', function() {
     child.kill();
   });
 
-  it('creates two log files on startup', function(done) {
-    fs.readdir(util.logsDir, function(err, files) {
-      if (err) {
-        throw err;
-      }
-
-      expect(files).to.have.length(2);
-
-      files = files.sort();
-      expect(files).to.have.deep.property('0').that.match(/master/);
-      expect(files).to.have.deep.property('1').that.match(/worker/);
-
-      logFiles = files;
-
-      done();
-    });
-  });
-
   it('root returns', function(done) {
     agent
       .get('/')
@@ -93,25 +74,6 @@ describe('end-to-end', function() {
       .expect('X-Worker', '2')
       .expect('Connection', 'keep-alive')
       .expect(200, done);
-  });
-
-  it('three log files now in directory', function(done) {
-    fs.readdir(util.logsDir, function(err, files) {
-      if (err) {
-        throw err;
-      }
-
-      expect(files).to.have.length(3);
-
-      files = files.sort();
-      expect(files).to.have.deep.property('0', logFiles[0]);
-      expect(files).to.have.deep.property('1', logFiles[1]);
-      expect(files).to.have.deep.property('2').that.match(/worker/);
-
-      logFiles = files;
-
-      done();
-    });
   });
 
   it('async error only takes down process after long task is complete', function(done) {
@@ -236,24 +198,6 @@ describe('end-to-end', function() {
             done();
           });
       });
-  });
-
-  it('four total log files', function(done) {
-    fs.readdir(util.logsDir, function(err, files) {
-      if (err) {
-        throw err;
-      }
-
-      expect(files).to.have.length(4);
-
-      files = files.sort();
-      expect(files).to.have.deep.property('0', logFiles[0]);
-      expect(files).to.have.deep.property('1', logFiles[1]);
-      expect(files).to.have.deep.property('2', logFiles[2]);
-      expect(files).to.have.deep.property('3').that.match(/worker/);
-
-      done();
-    });
   });
 
   it('sets connection:close even if endpoint uses res.writeHead', function(done) {
