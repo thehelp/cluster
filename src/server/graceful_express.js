@@ -192,6 +192,11 @@ GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
     return true;
   }
 
+  //if we never got the server, we never registered for the server 'close' event
+  if (!this.server) {
+    return this.responses.length === 0;
+  }
+
   return this.serverClosed;
 };
 
