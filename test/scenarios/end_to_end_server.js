@@ -19,7 +19,13 @@ var gracefulExpress = new thCluster.GracefulExpress();
 
 var app = express();
 
-app.use(morgan('combined'));
+app.use(morgan('combined', {
+  stream: {
+    write: function(text) {
+      logger.info(text.replace(/\n$/, ''));
+    }
+  }
+}));
 
 var worker = cluster.isMaster ? 'n/a' : cluster.worker.id;
 app.use(function(req, res, next) {
