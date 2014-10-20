@@ -1,9 +1,9 @@
 ## 0.3.0 (2014-10-11)
 
-* Reduce logging verbosity
 * `DomainMiddleware` class renamed to `GracefulExpress`
 * New mode in `GracefulExpress`; in development mode, will not set up a domain for each request, allowing for easier in-process testing with supertest.
 * Remove peer dependencies in favor of real dependencies
+* Logging: reduce verbosity, move to `thehelp-log-shim` to leave logging decisions to the process
 * Upgrade to 1.x series of `thehelp-last-ditch`, which doesn't send SMS by default any longer
 * Substantial test coverage added
 * Remoe dependency on `lodash`
