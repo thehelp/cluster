@@ -25,8 +25,9 @@ default master start callback
 being called, and prevents any kind of automatic graceful shutdown.
 + `messenger` -  a `function(err, options, cb)`, defaulting to
 `thehelp-last-ditch`. Passed any top-level exceptions encountered.
-+ `log` - an object that looks like `winston`, allowing you to use your own logging
-system: `info`, `warn` and `error` keys with the signature `function(string)`.
++ `log` - a logger object: `info`, `warn` and `error` keys with the signature
+`function(string)`. By default, whatever `thehelp-log-shim` gives us.
+
 */
 function Startup(options) {
   /*jshint maxcomplexity: 11 */

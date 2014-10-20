@@ -27,7 +27,7 @@ start.Master = Master;
 start.Graceful = Graceful;
 start.GracefulExpress = GracefulExpress;
 
-// Logging support
+// Winston logging support
 // ========
 
 // `logsDir` is your logs directory, defaulting to './logs/' (can also be specified by the

@@ -36,8 +36,8 @@ registered 'ready to stop process' check functions
 process down forcefully
 + `messenger` - a `function(err, options, cb)` that gets the information supplied to the
 `shutdown()` method. Defaults to `thehelp-last-ditch`.
-+ `log` - an object that looks like `winston`, allowing you to use your own logging
-system: `info`, `warn` and `error` keys with the signature `function(string)`.
++ `log` - a logger object: `info`, `warn` and `error` keys with the signature
+`function(string)`. By default, whatever `thehelp-log-shim` gives us.
 
 _Note: it's recommended to create an instance of this class just once per process, since
 it listens for a number of process-level events. See `_setupListeners()` below._
