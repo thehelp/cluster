@@ -7,10 +7,6 @@ var path = require('path');
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
-var serverUtil = require('../../../src/server/util');
-
-var logShim = require('thehelp-log-shim');
-var logger = logShim('end-to-end:test');
 
 var winston;
 
