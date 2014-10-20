@@ -21,16 +21,12 @@ describe('top-level crash in master', function() {
     this.timeout(10000);
 
     child.on('close', function() {
-      expect(child).to.have.property('stdoutResult');
-      expect(child).to.have.property('stderrResult');
+      expect(child).to.have.property('result');
 
-      var stdout = child.stdoutResult;
-      var stderr = child.stderrResult;
+      expect(child.result).to.match(/All workers gone./);
 
-      expect(stdout).to.match(/All workers gone./);
-
-      expect(stderr).to.match(/Master top-level domain error/);
-      expect(stderr).to.match(/LastDitch: crash/);
+      expect(child.result).to.match(/Master top-level domain error/);
+      expect(child.result).to.match(/LastDitch: crash/);
 
       done();
     });

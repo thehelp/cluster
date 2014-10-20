@@ -112,7 +112,7 @@ describe('keepalive sockets not closed', function() {
     var orig = done;
     done = serverUtil.once(function() {
       child.on('close', function() {
-        expect(child.stdoutResult).to.match(/Killing process now/);
+        expect(child.result).to.match(/Killing process now/);
 
         orig();
       });

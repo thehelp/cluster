@@ -21,20 +21,16 @@ describe('top-level crash in worker', function() {
     this.timeout(10000);
 
     child.on('close', function() {
-      expect(child).to.have.property('stdoutResult');
-      expect(child).to.have.property('stderrResult');
+      expect(child).to.have.property('result');
 
-      var stdout = child.stdoutResult;
-      var stderr = child.stderrResult;
+      expect(child.result).to.match(/LastDitch: crash/);
+      expect(child.result).to.match(/Worker #1 top-level domain error/);
+      expect(child.result).to.match(/Worker #2 top-level domain error/);
 
-      expect(stderr).to.match(/LastDitch: crash/);
-      expect(stderr).to.match(/Worker #1 top-level domain error/);
-      expect(stderr).to.match(/Worker #2 top-level domain error/);
+      expect(child.result).to.match(/died after less than spin timeout/);
+      expect(child.result).to.match(/No workers currently running!/);
 
-      expect(stderr).to.match(/died after less than spin timeout/);
-      expect(stderr).to.match(/No workers currently running!/);
-
-      expect(stdout).to.match(/All workers gone./);
+      expect(child.result).to.match(/All workers gone./);
 
       done();
     });

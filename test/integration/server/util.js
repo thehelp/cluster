@@ -29,18 +29,19 @@ exports.startProcess = function(module) {
     stdio: 'pipe'
   });
 
+  child.result = '';
+
   if (child.stdout) {
-    child.stdoutResult = '';
     child.stdout.on('data', function(data) {
       process.stdout.write(data.toString());
-      child.stdoutResult += data;
+      child.result += data;
     });
   }
   if (child.stderr) {
     child.stderrResult = '';
     child.stderr.on('data', function(data) {
       process.stderr.write(data.toString());
-      child.stderrResult += data;
+      child.result += data;
     });
   }
 
