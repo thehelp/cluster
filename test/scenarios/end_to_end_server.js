@@ -51,6 +51,13 @@ app.get('/longDelay', function(req, res) {
   }, 4000);
 });
 
+app.get('/writeHeadAndDelay', function(req, res) {
+  res.writeHead(200, {'Content-Type': 'text/plain'});
+  setTimeout(function() {
+    res.end('OK\n');
+  }, 2000);
+});
+
 app.get('/delayWriteHead', function(req, res) {
   setTimeout(function() {
     res.writeHead(200, {'Content-Type': 'text/plain'});

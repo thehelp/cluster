@@ -39,6 +39,8 @@ describe('end-to-end', function() {
     this.timeout(10000);
 
     child.on('close', function() {
+      expect(child.result).not.to.match(/Killing process now/);
+
       done();
     });
 
@@ -255,6 +257,42 @@ describe('end-to-end', function() {
       .get('/error')
       .expect('Connection', 'close')
       .expect('X-Worker', '4')
+      .expect(500, function(err) {
+        if (err) {
+          err.message += ' - /error request';
+          logger.error(err);
+          return done(err);
+        }
+      });
+  });
+
+  it('in-progress request gets keepalive, socket is reaped', function(done) {
+    this.timeout(10000);
+
+    // we don't make a request on the keepalive connection via .agent(pool), so that
+    //   keepalive connection is just hanging around...
+
+    done = serverUtil.once(done);
+
+    agent
+      .get('/writeHeadAndDelay')
+      .agent(pool)
+      .expect('X-Worker', '5')
+      .expect('Connection', 'keep-alive')
+      .expect(200, function(err) {
+        if (err) {
+          err.message += ' - /delay request';
+          logger.error(err);
+          return done(err);
+        }
+
+        done();
+      });
+
+    agent
+      .get('/error')
+      .expect('Connection', 'close')
+      .expect('X-Worker', '5')
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';

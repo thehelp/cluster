@@ -158,6 +158,10 @@ GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
 
 // `_onClose` runs with the http server's 'close' event fires
 GracefulExpress.prototype._onClose = function _onClose() {
+  if (this.interval) {
+    clearInterval(this.interval);
+    this.interval = null;
+  }
   this.serverClosed = true;
 };
 
@@ -179,6 +183,7 @@ GracefulExpress.prototype._onShutdown = function _onShutdown() {
 
   this._closeConnAfterResponses();
   this._closeInactiveSockets();
+  this._startSocketReaper();
 };
 
 // `_isReadyForShutdown` lets `Graceful` know when we're ready for `process.exit()`
@@ -237,6 +242,17 @@ GracefulExpress.prototype._removeResponse = function _removeResponse(res) {
 
 // Socket tracking
 // =======
+
+// `_startSocketReaper` starts an interval to call `_closeInactiveSockets()` repeatedly,
+// attempting to catch anything that slipped through the cracks.
+GracefulExpress.prototype._startSocketReaper = function _startSocketReaper() {
+  var _this = this;
+
+  this.interval = setInterval(function() {
+    _this._closeInactiveSockets();
+  }, 500);
+  this.interval.unref();
+};
 
 // `_closeInactiveSockets` destroys all inactive sockets
 GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets() {
