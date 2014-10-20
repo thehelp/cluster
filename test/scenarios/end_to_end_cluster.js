@@ -22,6 +22,7 @@ cluster({
     spinTimeout: 100
   },
   worker: function() {
-    require('./end_to_end_server');
+    var e2e = require('./end_to_end_server');
+    e2e.start();
   }
 });

@@ -103,12 +103,14 @@ app.use(function(err, req, res, next) {
   res.send(message);
 });
 
-var server = gracefulExpress.listen(app, 3000, function() {
-  logger.warn('Worker listening on port 3000');
-});
 
 module.exports = {
-  server: server,
   gracefulExpress: gracefulExpress,
-  app: app
+  app: app,
+  start: function() {
+    var server = gracefulExpress.listen(app, 3000, function() {
+      logger.warn('Worker listening on port 3000');
+    });
+    module.exports.server = server;
+  }
 };

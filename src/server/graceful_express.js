@@ -81,7 +81,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   var _this = this;
 
   if (this.development) {
-    next();
+    return next();
   }
 
   this._addSocket(req.socket);
