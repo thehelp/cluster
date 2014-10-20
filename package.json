@@ -4,9 +4,9 @@
   "main": "src/server/index.js",
 
   "dependencies": {
-    "winston": "0.7.x",
     "thehelp-core": "2.x",
-    "thehelp-last-ditch": "1.x"
+    "thehelp-last-ditch": "1.x",
+    "thehelp-log-shim": "1.x"
   },
   "devDependencies": {
     "agentkeepalive": "0.2.2",
@@ -17,7 +17,8 @@
     "rimraf": "2.2.8",
     "supertest": "0.14.0",
     "thehelp-project": "3.3.1",
-    "thehelp-test": "3.1.0"
+    "thehelp-test": "3.3.0",
+    "winston": "0.8.1"
   },
 
   "config": {

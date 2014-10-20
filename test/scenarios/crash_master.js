@@ -7,8 +7,9 @@ core.env.merge(path.join(__dirname, '../../env.json'));
 
 var fs = require('fs');
 
-var cluster = require('../../src/server/index');
+var cluster = require('../../src/server');
 
+cluster.setupLogs();
 cluster.Graceful.start();
 
 cluster({

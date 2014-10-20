@@ -22,8 +22,10 @@ var cluster = require('cluster');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
+var logShim = require('thehelp-log-shim');
+
 var localUtil = require('./util');
-var logShim = require('./log_shim');
+
 
 /*
 The `constructor` has no required parameters. Optional parameters:

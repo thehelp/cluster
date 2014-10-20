@@ -6,20 +6,18 @@
 
 var cluster = require('cluster');
 var domain = require('domain');
-var path = require('path');
 
 var core = require('thehelp-core');
+var logShim = require('thehelp-log-shim');
 
 var Graceful = require('./graceful');
 var util = require('./util');
-var logShim = require('./log_shim');
+
 
 /*
 The `constructor` requires only one parameter `worker`, a callback which
 starts a worker process. Optional parameters:
 
-+ `logsDir` -  your logs directory, defaulting to './logs/' (can also be specified by the
-THEHELP_LOGS_DIR environment variable)
 + `masterOptions` - options to be passed to the `Master` class on construction in the
 default master start callback
 + `master` - a callback to start the cluster's master process
@@ -41,7 +39,6 @@ function Startup(options) {
   }
 
   this.log = options.log || logShim('thehelp-cluster:startup');
-  this.logsDir = options.logsDir || process.env.THEHELP_LOGS_DIR || './logs/';
   this.logPrefix = util.getLogPrefix();
 
   this.masterOptions = options.masterOptions;
@@ -74,23 +71,6 @@ Startup.prototype.start = function start() {
   else {
     this.domain.run(this.worker);
   }
-};
-
-// `setupLogs` sets up `winston` with colorful, formatted console logging as well as a
-// file appropriate to the process type. Files are of the form
-// 'worker-2014-04-28T03-04:03.232Z-32706.log' in the `this.logsDir` directory.
-Startup.prototype.setupLogs = function setupLogs() {
-  core.logs.setupFile(this.getLogFilename());
-  core.logs.setupConsole();
-};
-
-// `getLogFilename` might still be useful if you're not using `winston` for your logging.
-Startup.prototype.getLogFilename = function getLogFilename() {
-  var type = this.cluster.isMaster ? 'master' : 'worker';
-  return path.join(
-    this.logsDir,
-    type + '-' + this._timestampForPath() + '-' + process.pid + '.log'
-  );
 };
 
 // Helper methods
@@ -127,13 +107,6 @@ Startup.prototype._onError = function _onError(err) {
   this.messenger(err, null, function() {
     _this.process.kill(_this.process.pid, 'SIGTERM');
   });
-};
-
-// `_timestampForPath` makes `toISOString()` timestamps safe for filenames.
-Startup.prototype._timestampForPath = function _timestampForPath() {
-  var result = core.logs.timestamp();
-  result = result.replace(':', '-');
-  return result;
 };
 
 // `_defaultMasterStart` what starts up the master process if you provide your own

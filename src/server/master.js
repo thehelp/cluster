@@ -7,8 +7,10 @@
 
 var cluster = require('cluster');
 
+var logShim = require('thehelp-log-shim');
+
 var Graceful = require('./graceful');
-var logShim = require('./log_shim');
+
 
 /*
 The `constructor` has no required parameters.   Optional parameters:

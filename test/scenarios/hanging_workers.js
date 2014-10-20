@@ -5,9 +5,8 @@ var path = require('path');
 var core = require('thehelp-core');
 core.env.merge(path.join(__dirname, '../../env.json'));
 
-var winston = require('winston');
-
-var cluster = require('../../src/server/index');
+var cluster = require('../../src/server');
+cluster.setupLogs();
 
 cluster({
   master: function() {
@@ -26,7 +25,7 @@ cluster({
     app.listen(3000);
 
     process.on('SIGTERM', function() {
-      winston.warn('Got SIGTERM, not doing anything about it...');
+      console.log('Got SIGTERM, not doing anything about it...');
     });
   }
 });

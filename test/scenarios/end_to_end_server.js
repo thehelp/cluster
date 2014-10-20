@@ -13,11 +13,8 @@ var winston = require('winston');
 var express = require('express');
 var morgan = require('morgan');
 
-var thCluster = require('../../src/server/index');
-var gracefulExpress = new thCluster.GracefulExpress({
-  // closeSockets: false,
-  // rejectDuringShutdown: false
-});
+var thCluster = require('../../src/server');
+var gracefulExpress = new thCluster.GracefulExpress();
 
 var app = express();
 

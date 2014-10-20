@@ -5,28 +5,10 @@ var path = require('path');
 var core = require('thehelp-core');
 core.env.merge(path.join(__dirname, '../../env.json'));
 
-var winston = require('winston');
-var log = {
-  info: function(text) {
-    winston.info('PREFIX ' + text);
-  },
-  warn: function(text) {
-    winston.warn('PREFIX ' + text);
-  },
-  error: function(text) {
-    winston.error('PREFIX ' + text);
-  }
-};
-
-var cluster = require('../../src/server/index');
-
-var registry = global['thehelp-cluster'];
-Object.keys(registry).forEach(function(version) {
-  registry[version].logger = log;
-});
+var cluster = require('../../src/server');
+cluster.setupLogs();
 
 var ld = require('thehelp-last-ditch');
-
 var lastDitch = new ld.LastDitch({
   targets: ['stderr']
 });
