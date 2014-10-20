@@ -23,16 +23,10 @@ describe('end-to-end', function() {
 
     agent = supertest.agent('http://localhost:3000');
 
-    util.emptyDir(util.logsDir, function(err) {
-      if (err) {
-        throw err;
-      }
+    child = util.startProcess(
+      path.join(__dirname, '../../scenarios/end_to_end_cluster.js'));
 
-      child = util.startProcess(
-        path.join(__dirname, '../../scenarios/end_to_end_cluster.js'));
-
-      setTimeout(done, 1000);
-    });
+    setTimeout(done, 1000);
   });
 
   after(function(done) {
@@ -89,6 +83,7 @@ describe('end-to-end', function() {
     });
 
     // long-running task still gets connection:close, even though error comes after
+    // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/longDelay')
       .agent(second)
@@ -103,6 +98,7 @@ describe('end-to-end', function() {
       });
 
     // long-running task still gets connection:close, even though error comes after
+    // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/delay')
       .agent(second)
@@ -148,29 +144,10 @@ describe('end-to-end', function() {
         expect(delayComplete).to.equal(false);
 
         // this request sneaks in on an idle keepalive connection
+        // this relies on GracefulExpress._closeInactiveSockets
         agent
           .get('/')
           .agent(pool)
-
-          // this result can change based on options passed to GracefulExpress:
-          // (two other tests cover these situations, this is just for easy reference)
-
-          // closeSockets = false / rejectDuringShutdown = false
-          // risky! requests leak through, might be cut off in the middle at process.exit
-          // .expect('X-Worker', '2')
-          // .expect('Connection', 'close')
-          // .expect('success')
-          // .expect(200, function(err) {
-
-          // closeSockets = false / rejectDuringShutdown = true
-          // not too pretty! requests leak through, but are rejected with a 503
-          // .expect('X-Worker', '2')
-          // .expect('Connection', 'close')
-          // .expect('Please try again later; this server is shutting down')
-          // .expect(503, function(err) {
-
-          // [default] closeSockets = true
-          // track sockets and close them manually when the server shuts down
           .expect('X-Worker', '3')
           .expect('Connection', 'keep-alive')
           .expect(200, function(err) {
@@ -180,7 +157,6 @@ describe('end-to-end', function() {
               return done(err);
             }
 
-            // this will only be true if closeSockets = true
             expect(delayComplete).to.equal(true);
           });
 
@@ -207,10 +183,11 @@ describe('end-to-end', function() {
 
     done = serverUtil.once(done);
 
+    // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/delayWriteHead')
       .expect('X-Worker', '3')
-      .expect('Connection', 'close') // relies on patchResMethods = true
+      .expect('Connection', 'close')
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -239,10 +216,11 @@ describe('end-to-end', function() {
 
     done = serverUtil.once(done);
 
+    // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/delayWrite')
       .expect('X-Worker', '4')
-      .expect('Connection', 'close') // relies on patchResMethods = true
+      .expect('Connection', 'close')
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
@@ -269,11 +247,10 @@ describe('end-to-end', function() {
   it('in-progress request gets keepalive, socket is reaped', function(done) {
     this.timeout(10000);
 
-    // we don't make a request on the keepalive connection via .agent(pool), so that
-    //   keepalive connection is just hanging around...
-
     done = serverUtil.once(done);
 
+    // results in a keepalive because headers are writen before the error happens
+    // then we don't make another request on the socket, so it sticks around
     agent
       .get('/writeHeadAndDelay')
       .agent(pool)
