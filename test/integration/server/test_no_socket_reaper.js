@@ -3,6 +3,7 @@
 
 var path = require('path');
 
+var core = require('thehelp-core');
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
@@ -44,7 +45,7 @@ describe('socket reaper not started', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          logger.error(err);
+          logger.error(core.breadcrumbs.toString(err));
           return done(err);
         }
 
@@ -58,7 +59,7 @@ describe('socket reaper not started', function() {
             .expect(503, function(err) {
               if (err) {
                 err.message += ' - / keepalive request to worker 3';
-                logger.error(err);
+                logger.error(core.breadcrumbs.toString(err));
                 return done(err);
               }
 
@@ -74,7 +75,7 @@ describe('socket reaper not started', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          logger.error(err);
+          logger.error(core.breadcrumbs.toString(err));
           return done(err);
         }
       });
@@ -116,7 +117,7 @@ describe('socket reaper not started', function() {
       .expect(200, function(err) {
         if (err) {
           err.message += ' - /delay request';
-          logger.error(err);
+          logger.error(core.breadcrumbs.toString(err));
           return done(err);
         }
 
@@ -130,7 +131,7 @@ describe('socket reaper not started', function() {
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
-          logger.error(err);
+          logger.error(core.breadcrumbs.toString(err));
           return done(err);
         }
       });
