@@ -29,7 +29,7 @@ describe('Graceful', function() {
   describe('constructor', function() {
     it('sets right defaults', function() {
       expect(graceful).to.have.property('checks').that.has.length(1);
-      expect(graceful).to.have.property('closed', false);
+      expect(graceful).to.have.property('shuttingDown', false);
 
       expect(graceful).to.have.property('pollInterval', 250);
       expect(graceful).to.have.property('timeout', 5000);
@@ -141,7 +141,7 @@ describe('Graceful', function() {
     it('calls _finalLog if check functions never return true', function(done) {
       graceful.pollInterval = 50;
       graceful.timeout = 175;
-      graceful.closed = true;
+      graceful.shuttingDown = true;
       graceful.addCheck(function() {
         return false;
       });
@@ -160,7 +160,7 @@ describe('Graceful', function() {
     });
 
     it('calls _finalLog if check function returns', function() {
-      graceful.closed = true;
+      graceful.shuttingDown = true;
 
       graceful._finalLog = sinon.stub();
       graceful._exit = sinon.spy(graceful._exit);

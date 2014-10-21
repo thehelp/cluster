@@ -47,7 +47,7 @@ function Graceful(options) {
 
   options = options || {};
 
-  this.closed = false;
+  this.shuttingDown = false;
 
   this.pollInterval = options.pollInterval || 250;
   this.timeout = options.timeout || 5 * 1000;
@@ -107,8 +107,8 @@ graceful.on('shutdown', function() {
 ```
 */
 Graceful.prototype.shutdown = function shutdown(err, info) {
-  if (!this.closed) {
-    this.closed = true;
+  if (!this.shuttingDown) {
+    this.shuttingDown = true;
     this.error = err;
 
     this.log.warn(this.logPrefix + ' gracefully shutting down!');
@@ -168,7 +168,7 @@ Graceful.prototype._exit = function _exit() {
 
   this.log.info(this.logPrefix + ' calling all provided pre-exit check functions...');
 
-  if (this.closed && this._check()) {
+  if (this.shuttingDown && this._check()) {
     this._clearTimers();
     this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
   }
