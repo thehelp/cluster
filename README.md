@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/thehelp/cluster.svg?branch=master)](https://travis-ci.org/thehelp/cluster)
+
 # thehelp-cluster
 
 Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support too!
