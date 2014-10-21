@@ -13,8 +13,11 @@ var Graceful = require('./graceful');
 
 
 /*
-The `constructor` has no required parameters.   Optional parameters:
+The `constructor` has no required parameters. Optional parameters:
 
++ `graceful` - required to enable full process shutdown scenarios. Can be set either on
+construction or later with `setGraceful()`. Default is `Graceful.instance`, so if you've
+created an instance in this process already, it will be found automatically.
 + `spinTimeout` - how long a process needs to stay up after launch for a crash to be
 considered 'normal.'
 + `delayStart` - if a process crashes too fast, how long to wait before starting another

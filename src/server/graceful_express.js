@@ -26,9 +26,9 @@ var Graceful = require('./graceful');
 /*
 The `constructor` has some optional parameters:
 
-+ `graceful` - if set either on construction or later with `setGraceful()`, `shutdown()`
-will be called with any unhandled error encountered. Default is `Graceful.instance`, so if
-you've created an instance in this process already, it will be found automatically.
++ `graceful` - required to enable full server shutdown scenarios. Can be set either on
+construction or later with `listen()` or `setGraceful()`. Default is `Graceful.instance`,
+so if you've created an instance in this process already, it will be found automatically.
 + `server` - the http server, though unlikely to be available on construction of this
 class. More likely you'll use `listen()` or `setServer()` later - see below.
 + `inProcessTest` - if set to true, will prevent domains from being set up for every
