@@ -31,9 +31,9 @@ will be called with any unhandled error encountered. Default is `Graceful.instan
 you've created an instance in this process already, it will be found automatically.
 + `server` - the http server, though unlikely to be available on construction of this
 class. More likely you'll use `listen()` or `setServer()` later - see below.
-+ `development` - if set to true, will prevent domains from being set up for every
++ `inProcessTest` - if set to true, will prevent domains from being set up for every
 request, enabling in-process testing of your endpoints, as is often done with `supertest`.
-Defaults to `process.env.NODE_ENV === 'development'`
+Defaults to true if we can detect that this is a `mocha` run.
 
 */
 function GracefulExpress(options) {
@@ -47,7 +47,8 @@ function GracefulExpress(options) {
   this.sockets = [];
   this.activeSockets = [];
 
-  this._setOption('development', options, process.env.NODE_ENV === 'development');
+  var startFile = process.mainModule.filename;
+  this._setOption('inProcessTest', options, /mocha$/.test(startFile));
 
   //both here for symmetry; unlikely that both of these are available on construction
   this.setGraceful(options.graceful || Graceful.instance);
@@ -80,7 +81,7 @@ GracefulExpress.prototype.listen = function listen(app) {
 GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   var _this = this;
 
-  if (this.development) {
+  if (this.inProcessTest) {
     return next();
   }
 
@@ -188,7 +189,7 @@ GracefulExpress.prototype._onShutdown = function _onShutdown() {
 
 // `_isReadyForShutdown` lets `Graceful` know when we're ready for `process.exit()`
 GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
-  if (this.development) {
+  if (this.inProcessTest) {
     return true;
   }
 
