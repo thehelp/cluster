@@ -1,69 +1,96 @@
 # thehelp-cluster
 
-This project is designed to make your node applications more reliable, using two base node technologies: [`domain`](http://nodejs.org/api/domain.html) and [`cluster`](http://nodejs.org/api/cluster.html).
+Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support too!
 
-`domain` is used to ensure that the process doesn't immediately go down when an unhandled exception is thrown. The `GracefulExpress` class captures the error, records it, and then starts the process of gracefully shutting down the process, ensuring that every in-progress request is completed.
 
-`cluster` is used to manage multiple worker processes. The `Master` class creates the requested number of workers, restarting them as they crash, watching for worker processes crashing too quickly.
+## Features
 
-'SIGTERM' is the signal interpreted as a request for graceful shutdown.
++ `GracefulExpress` class to:
+  + Install [`domain`](http://nodejs.org/api/domain.html)-based capture of unhandled errors for every request, ensuring that the client always gets an error message
+  + Shut down [`express`](http://expressjs.com/) servers gracefully: stop accepting new connections, close keepalive connections, and return 503 if any requests leak through
+  + `inProcessTest` mode for [`supertest`](https://github.com/tj/supertest)-based in-process endpoint testing
++ `Master` class to:
+  + Start up user-provided set of worker processes via [`cluster`](http://nodejs.org/api/domain.html)
+  + Detect if worker processes crash too fast, then start replacements up after a delay
+  + Shut down process and workers gracefully, only killing worker processes if they take too long
++ `Graceful` class to:
+  + Act as the process-level hub for shutdown notifications and shutdown readiness
+  + Listen for `SIGTERM` signal, start graceful shutdown process
+  + Report the shutdown-causing error via [`thehelp-last-ditch`](https://github.com/thehelp/last-ditch)
++ `Startup` class to:
+  + Easily start up a cluster
+  + Install `domain` for top-level errors in master and worker processes
++ Logging options:
+  + This library can participate in your logging system via [`thehelp-log-shim`](https://github.com/thehelp/log-shim)
+  + If you're using [`winston`](https://github.com/flatiron/winston), `setupLogs()` will quickly set up per-process log files
+
 
 ## Setup
 
-There are two optional environment variables:
+First, install the project as a dependency:
 
+```bash
+npm install thehelp-project --save-dev
 ```
-"THEHELP_NUMBER_WORKERS": "1",
-"THEHELP_LOGS_DIR": "logs directory; defaults to ./logs/"
-```
 
-_Note: It's a good idea to set the number of workers, because the default is `os.cpus().length`, and most VPS instances report far too many CPUs._
-
-By default, both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use [`thehelp-last-ditch`](https://github.com/thehelp/last-ditch) to save exceptions. Take a look at the documentation for that - you'll likely want to set the `THEHELP_CRASH_LOG` environment variable, and you might consider turning on SMS/email notifcations.
 
 ## Usage
 
-Your worker processes should be set up like this to enable shutting down the server gracefully:
+Okay, say you want to use all of `thehelp-cluster`. Here's the full treatment - a cluster-based setup, with `GracefulExpress` installed on your server. First, create your `cluster.js` file:
 
-```
-var cluster = require('thehelp-cluster');
-var gracefulExpress = new cluster.GracefulExpress();
-
-var app = express();
-
-// this should be installed before any of your processing
-app.use(gracefulExpress.middleware);
-
-// ...add more middleware, endpoints...
-
-// create http server manually to make available to GracefulExpress
-var http = require('http');
-var server = http.createServer(app);
-gracefulExpress.setServer(server);
-
-// start server
-server.listen(PORT);
-```
-
-_Note: In development mode (`process.env.NODE_ENV === 'development'`), `GracefulExpress` will not set up a domain for every request. This allows easy in-process testing with `supertest`_
-
-Then, you start up the cluster like this:
-
-```
+```javascript
 var cluster = require('thehelp-cluster');
 
-// set up graceful shutdown for both master and workers
-// Master and GracefulExpress classes will be wired up automatically
+cluster.setupLogs();
+
+// creates a Graceful instance for the process - Master and GracefulExpress need it
 cluster.Graceful.start();
 
 cluster({
   worker: function() {
-    require('./start_server');
+    var server = require('./server');
+    server.start();
   }
 });
 ```
 
-A top-level domain will be created both for master and worker processes to catch unhandled errors outside of `express` request handling. If you don't provide a `master` callback, an instance of the `Master` class will be automatically created for your master process to manage your worker processes. By default, `winston` will be set up with a separate log file for each process, like this:
+Anything run outside of the `master`/`worker` callbacks you pass to cluster will be run in all of your processes. So a `Graceful` instance is created for each process, and logging is set up too. Since the `master` callback wasn't provided, a basic default is provided: create a `Master` instance, call `start()`.
+
+Now, in the same directory, your `server.js` file:
+
+```javascript
+var express = require('express');
+var app = express();
+
+var cluster = require('thehelp-cluster');
+var gracefulExpress = new cluster.GracefulExpress();
+
+// ...very little should go before gracefulExpress - probably just logging...
+
+app.use(gracefulExpress.middleware);
+
+// ...register your endpoints and other middleware...
+
+app.get('/', function(req, res) {
+  res.send('success!');
+})
+
+return {
+  // we expose the app to allow for supertest-based in-process testing
+  app: app,
+
+  // gracefulExpress needs a references to the http server itself; listen() makes that easy
+  start: function() {
+    gracefulExpress.listen(app, 3000, function() {
+      console.log('Worker listening on port 3000');
+    });
+  }
+};
+```
+
+That's it! You've got a cluster of one worker process that will respond to `SIGTERM` and shut down gracefully. An unhandled error in middleware, or in an endpoint handler, or even in a callback will shut down your server gracefully after piping the error through the installed [express error handler](http://expressjs.com/guide/error-handling.html).
+
+If you have `winston` installed, you'll get a separate log file for each process, like this:
 
 ```
 logs/master-2014-10-11T01-04:54.602Z-80524.log
@@ -74,14 +101,66 @@ logs/worker-2014-10-11T01-04:58.224Z-80527.log
 logs/worker-2014-10-11T01-04:59.200Z-80529.log
 ```
 
-Files will be created in your specified logs directory, with the process type, date and time, and process pid in the filename.
+But we can't forget tests! Here, `test/endpoints.js` specifies a [`mocha`](http://mochajs.github.io/mocha/) test and uses [`supertest`](https://github.com/tj/supertest) to load the `app` from `server.js` and call it in-process:
 
-## Advanced
+```javascript
+var supertest = require('supertest');
+var app = require('../server').app;
+
+describe('endpoint test', function() {
+  var request;
+
+  before(function() {
+    request = supertest(app);
+  });
+
+  it('/ should return success', function(done) {
+    request
+      .get('/')
+      .expect('success')
+      .expect(200, done);
+  });
+});
+```
+
+Now try throwing an error in an async callback to start testing out the error-catching capabilities of `GracefulExpress`!
+
+_Note: `GracefulExpress` behaves differently when run under `mocha`. By default, its `inProcessTest` option is set to `true` if we can detect that `mocha` is the main module for the current process. Errors will bubble all the way to `mocha`'s top-level exceptoin handler and be reported as standard test failures._
+
+## Configuration
+
+You may be wondering about the knobs you can turn in this simple use case. First, two environment variables:
+
+```json
+{
+  "THEHELP_NUMBER_WORKERS": "1",
+  "THEHELP_LOGS_DIR": "logs directory; defaults to ./logs/"
+}
+```
+
+
+### Error reporting
+
+Next, by default both `Graceful` (for exceptions delivered by a `shutdown()` call) and `Startup` (if a `Graceful` instance cannot be found) use [`thehelp-last-ditch`](https://github.com/thehelp/last-ditch) to save exceptions. Take a look at the documentation for that - you'll likely want to set the `THEHELP_CRASH_LOG` environment variable.
+
+You can also provide your own customized `LastDitch` with SMS/email notifications turned on. Or, you can go further and provide a totally custom `messenger` callback of the form `function(err, options, cb)`.
+
+
+### Logging
+
+You'll also want to look at the documentation for [`thehelp-log-shim`](https://github.com/thehelp/log-shim), which is used for logging. Essentially, this library will look for logging libraries your project already has installed, and will use that.
+
+
+## Going deeper
 
 In more complex scenarios, say for example you're responding to incoming socket.io messages, you can register for shutdown notifications and delay shutdown like this:
 
 ```
-var graceful = new cluster.Graceful();
+var cluster = require('thehelp-cluster');
+
+// this uses the Graceful instance already in place for this process
+var graceful = cluster.Graceful.instance;
+
 graceful.on('shutdown', function() {
   // start shutting down all active socket.io connections
 });
@@ -93,46 +172,37 @@ graceful.addCheck(function() {
 
 Take a look at how `Master` and `GracefulExpress` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
 
-The exposed four classes also provide a deeper level of customization. For example, instead of using the default configuration of `thehelp-last-ditch`, you can provide `messenger` callbacks of the form `function(err, options, cb)`. Or, instead of letting these classes log with `winston`, you can provide `log` objecst with `info`/`warn`/`error` functions to pipe output to your own logging system.
+
+## Detailed Documentation
+
+Detailed docs be found at this project's GitHub Pages, thanks to [`groc`](https://github.com/nevir/groc): <http://thehelp.github.io/thehelp-cluster/src/server/index.html>
+
 
 ## A note on domains
 
-[Node.js domains](http://nodejs.org/api/domain.html), while powerful, are still in the unstable state, so this module will be kept in the `0.x.y` version range until that changes.
+[Node.js domains](http://nodejs.org/api/domain.html), while powerful, are still at the 'Unstable' stability level, so this module will be kept in the `0.x.y` version range until that changes.
 
-It should also be noted that not all libraries support domains. `pg` only started supporting domains in `3.x`. Do testing with your libraries of choice to ensure that they play nicely.
+It should also be noted that not all libraries support domains. [`pg`](https://github.com/brianc/node-postgres) only started supporting domains in `3.x`. Do testing with your libraries of choice to ensure that they play nicely.
 
-## Development
 
-Run unit and integration tests like this:
+## Contributing changes
 
-```
-grunt test
-```
+The tests in this project are quite extensive. In particular, take a look at the integration tests and all the files under `test/scenarios`. The tests create and kill a lot of processes, as you might expect for a library based around graceful shutdown. :0)
 
-You can manually play around with the test cluster by launching it yourself:
+When you have some changes ready, please submit a pull request with:
 
-```
-node test/start_cluster.js
-```
+* Justification - why is this change worthwhile? Link to issues, use code samples, etc.
+* Documentation changes for your code updates. Be sure to check the groc-generated HTML with `grunt doc`
+* A description of how you tested the change. Don't forget about the very-useful `npm link` command :0)
 
-In another terminal you can shut it down gracefully by sending it a 'SIGTERM' signal. But first you'll need to find the master process id (use `ps` on posix systems).
+I may ask you to use a `git rebase` to ensure that your commits are not interleaved with commits already in the history. And of course, make sure `grunt` completes successfully (take a look at the requirements for [`thehelp-project`](https://github.com/thehelp/project)). :0)
 
-```
-ps | grep node
-kill PID
-```
-
-Tests, static analysis, documentation generation and more are all run by default. Take a look at [`thehelp-project`](https://github.com/thehelp/project) documentation to get it running successfully:
-
-```
-grunt
-```
 
 ## License
 
 (The MIT License)
 
-Copyright (c) 2013 Scott Nonnenberg &lt;scott@nonnenberg.com&gt;
+Copyright (c) 2014 Scott Nonnenberg &lt;scott@nonnenberg.com&gt;
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
