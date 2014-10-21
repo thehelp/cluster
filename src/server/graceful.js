@@ -81,8 +81,12 @@ module.exports = Graceful;
 
 // A quick helper function, since other classes use `Graceful.instance` to find their
 // reference to your created `Graceful` object; you don't have to keep the instance
-// around.
+// around. Only creates a new instance if no previous instance has been created in this
+// process.
 Graceful.start = function start(options) {
+  if (Graceful.instance) {
+    return Graceful.instance;
+  }
   return new Graceful(options);
 };
 
