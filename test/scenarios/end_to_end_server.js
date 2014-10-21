@@ -108,9 +108,8 @@ module.exports = {
   gracefulExpress: gracefulExpress,
   app: app,
   start: function() {
-    var server = gracefulExpress.listen(app, 3000, function() {
+    gracefulExpress.listen(app, 3000, function() {
       logger.warn('Worker listening on port 3000');
     });
-    module.exports.server = server;
   }
 };
