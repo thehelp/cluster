@@ -23,7 +23,7 @@ describe('GracefulExpress', function() {
       expect(graceful).to.have.property('server', null);
       expect(graceful).to.have.property('closed', false);
       expect(graceful).to.have.property('responses').that.deep.equal([]);
-      expect(graceful).to.have.property('development', false);
+      expect(graceful).to.have.property('inProcessTest', true);
 
       expect(graceful).not.to.have.property('graceful');
     });
