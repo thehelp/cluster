@@ -21,6 +21,10 @@
     "winston": "0.8.1"
   },
 
+  "scripts": {
+    "test": "grunt"
+  },
+
   "config": {
     "blanket": {
       "data-cover-only": "src",
@@ -28,9 +32,26 @@
     }
   },
 
+  "description": "Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support too!",
+  "keywords": [
+    "graceful",
+    "shutdown",
+    "keepalive",
+    "cluster",
+    "express",
+    "socket",
+    "worker",
+    "master",
+    "logging"
+  ],
+
   "author": "Scott Nonnenberg",
+  "license": "MIT",
+
+  "homepage": "https://github.com/thehelp/cluster",
   "repository": {
     "type": "git",
-    "url": "git@infra:thehelp-cluster"
-  }
+    "url": "git@github.com:thehelp/cluster.git"
+  },
+  "bugs": "https://github.com/thehelp/cluster/issues"
 }
