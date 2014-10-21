@@ -40,7 +40,7 @@ function GracefulExpress(options) {
   options = options || {};
 
   this.server = null;
-  this.closed = false;
+  this.shuttingDown = false;
   this.serverClosed = false;
 
   this.responses = [];
@@ -98,7 +98,7 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   res.on('close', finish);
   res.on('end', finish);
 
-  if (this.closed) {
+  if (this.shuttingDown) {
     this._preventKeepAlive(res);
 
     var err = new Error('Server is shutting down; rejecting request');
@@ -173,7 +173,7 @@ GracefulExpress.prototype._onClose = function _onClose() {
 // that request is complete. `_closeInactiveSockets` shuts down all idle keepalive
 // connections.
 GracefulExpress.prototype._onShutdown = function _onShutdown() {
-  this.closed = true;
+  this.shuttingDown = true;
 
   if (this.server) {
     try {
