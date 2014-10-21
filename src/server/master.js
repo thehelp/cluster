@@ -25,7 +25,8 @@ considered 'normal.'
 remaining worker processes
 + `killTimeout` - how long to wait after sending 'SIGTERM` to follow up it with a 'SIGINT'
 for a more decisive kill
-+ `numberWorkers` - worker processes to start and maintain. defaults to `os.cpus().length`
++ `numberWorkers` - worker processes to start and maintain. defaults to `1` or
+`process.env.THEHELP_NUMBER_WORDERS`
 
 */
 function Master(options) {
