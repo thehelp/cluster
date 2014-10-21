@@ -79,6 +79,9 @@ util.inherits(Graceful, EventEmitter);
 
 module.exports = Graceful;
 
+// Public methods
+// ========
+
 // A quick helper function, since other classes use `Graceful.instance` to find their
 // reference to your created `Graceful` object; you don't have to keep the instance
 // around. Only creates a new instance if no previous instance has been created in this
@@ -168,7 +171,7 @@ Graceful.prototype._exit = function _exit() {
 
   this.log.info(this.logPrefix + ' calling all provided pre-exit check functions...');
 
-  if (this.shuttingDown && this._check()) {
+  if (this._check()) {
     this._clearTimers();
     this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
   }
