@@ -127,7 +127,7 @@ describe('endpoint test', function() {
 
 Now try throwing an error in an async callback to start testing out the error-catching capabilities of `GracefulExpress`!
 
-_Note: `GracefulExpress` behaves differently when run under `mocha`. By default, its `inProcessTest` option is set to `true` if we can detect that `mocha` is the main module for the current process. Errors will bubble all the way to `mocha`'s top-level exceptoin handler and be reported as standard test failures._
+_Note: `GracefulExpress` behaves differently when run under `mocha`. By default, its `inProcessTest` option is set to `true` if we can detect that `mocha` is the main module for the current process. Errors will bubble all the way to `mocha`'s top-level exception handler and be reported as standard test failures._
 
 ## Configuration
 
