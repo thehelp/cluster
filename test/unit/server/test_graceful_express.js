@@ -21,11 +21,51 @@ describe('GracefulExpress', function() {
   describe('constructor', function() {
     it('sets right defaults', function() {
       expect(graceful).to.have.property('server', null);
+      expect(graceful).to.have.property('graceful', null);
       expect(graceful).to.have.property('shuttingDown', false);
-      expect(graceful).to.have.property('responses').that.deep.equal([]);
-      expect(graceful).to.have.property('inProcessTest', true);
 
-      expect(graceful).not.to.have.property('graceful');
+      expect(graceful).to.have.property('responses').that.deep.equal([]);
+      expect(graceful).to.have.property('sockets').that.deep.equal([]);
+      expect(graceful).to.have.property('activeSockets').that.deep.equal([]);
+
+      expect(graceful).to.have.property('inProcessTest', true);
+    });
+  });
+
+  describe('#listen', function() {
+    it('throws if app is not provided', function() {
+      expect(function() {
+        graceful.listen();
+      }).to['throw']().that.match(/to provide express app as first parameter/);
+    });
+  });
+
+  describe('#setGraceful', function() {
+    it('throws if graceful doesn\'t have shutdown() method', function() {
+      var obj = {
+        on: sinon.stub()
+      };
+      expect(function() {
+        graceful.setGraceful(obj);
+      }).to['throw']().that.match(/graceful object must have shutdown method/);
+    });
+
+    it('throws if graceful doesn\'t have shutdown() method', function() {
+      var obj = {
+        shutdown: sinon.stub()
+      };
+      expect(function() {
+        graceful.setGraceful(obj);
+      }).to['throw']().that.match(/graceful object must have on method/);
+    });
+  });
+
+  describe('#setServer', function() {
+    it('throws if server doesn\'t have on() method', function() {
+      var obj = {};
+      expect(function() {
+        graceful.setServer(obj);
+      }).to['throw']().that.match(/server object must have on method/);
     });
   });
 

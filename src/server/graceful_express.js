@@ -40,6 +40,7 @@ function GracefulExpress(options) {
   options = options || {};
 
   this.server = null;
+  this.graceful = null;
   this.shuttingDown = false;
   this.serverClosed = false;
 
@@ -65,6 +66,10 @@ module.exports = GracefulExpress;
 // `listen` is a helper method to create an http server, wire it up properly, and start
 // it listening on your desired interface. Returns the created server.
 GracefulExpress.prototype.listen = function listen(app) {
+  if (!app) {
+    throw new Error('Need to provide express app as first parameter');
+  }
+
   var args = Array.prototype.slice.call(arguments, 1);
 
   var server = http.createServer(app);
@@ -121,6 +126,8 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
 GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
   if (graceful) {
     this.graceful = graceful;
+    util.verifyGraceful(this.graceful);
+
     this.graceful.on('shutdown', this._onShutdown.bind(this));
     this.graceful.addCheck(this._isReadyForShutdown.bind(this));
   }
@@ -130,6 +137,8 @@ GracefulExpress.prototype.setGraceful = function setGraceful(graceful) {
 GracefulExpress.prototype.setServer = function setServer(server) {
   if (server) {
     this.server = server;
+    util.verifyServer(this.server);
+
     this.server.on('close', this._onClose.bind(this));
   }
 };

@@ -27,14 +27,15 @@ describe('Graceful', function() {
   });
 
   describe('constructor', function() {
+    /*jshint nonew: false */
+
     it('sets right defaults', function() {
-      expect(graceful).to.have.property('checks').that.has.length(1);
       expect(graceful).to.have.property('shuttingDown', false);
+      expect(graceful).to.have.property('checks').that.has.length(1);
+      expect(graceful).to.have.property('sending', false);
 
       expect(graceful).to.have.property('pollInterval', 250);
       expect(graceful).to.have.property('timeout', 5000);
-
-      expect(graceful).to.have.property('sending', false);
 
       expect(Graceful).to.have.property('instance').that.deep.equal(graceful);
     });
@@ -53,15 +54,54 @@ describe('Graceful', function() {
     });
 
     it('logs if previous instance has been created', function() {
-      /*jshint nonew: false */
+
       var log = {
-        warn: sinon.stub()
+        verbose: sinon.stub(),
+        info: sinon.stub(),
+        warn: sinon.stub(),
+        error: sinon.stub()
       };
       new Graceful({
         log: log
       });
 
       expect(log).to.have.deep.property('warn.callCount', 1);
+    });
+
+    it('throws if provided pollInterval is not a number', function() {
+      expect(function() {
+        new Graceful({
+          pollInterval: 'string'
+        });
+      }).to['throw']().that.match(/pollInterval must be a number/);
+    });
+
+    it('throws if provided timeout is not a number', function() {
+      expect(function() {
+        new Graceful({
+          timeout: 'string'
+        });
+      }).to['throw']().that.match(/timeout must be a number/);
+    });
+
+    it('throws if provided messenger is not a function', function() {
+      expect(function() {
+        new Graceful({
+          messenger: 4
+        });
+      }).to['throw']().that.match(/messenger must be a function/);
+    });
+
+    it('throws if provided log is missing error level', function() {
+      expect(function() {
+        new Graceful({
+          log: {
+            verbose: function() {},
+            info: function() {},
+            warn: function() {}
+          }
+        });
+      }).to['throw']().that.match(/log object must have error function/);
     });
   });
 
@@ -79,6 +119,34 @@ describe('Graceful', function() {
 
       expect(graceful).to.have.deep.property('_sendError.callCount', 1);
       expect(graceful).to.have.deep.property('_exit.callCount', 1);
+    });
+  });
+
+  describe('#addCheck', function() {
+    it('throws if you provide null', function() {
+      expect(function() {
+        graceful.addCheck();
+      }).to['throw']().that.match(/provide a function/);
+    });
+
+    it('throws if you provide a non-function', function() {
+      expect(function() {
+        graceful.addCheck('non-function');
+      }).to['throw']().that.match(/provide a function/);
+    });
+
+    it('adds element to checks if function', function() {
+      expect(graceful.checks).to.have.length(1);
+      graceful.addCheck(function() {
+        return true;
+      });
+      expect(graceful.checks).to.have.length(2);
+      expect(graceful._check()).to.equal(true);
+      graceful.addCheck(function() {
+        return false;
+      });
+      expect(graceful.checks).to.have.length(3);
+      expect(graceful._check()).to.equal(false);
     });
   });
 

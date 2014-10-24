@@ -48,13 +48,20 @@ function Graceful(options) {
   options = options || {};
 
   this.shuttingDown = false;
-
-  this.pollInterval = options.pollInterval || 250;
-  this.timeout = options.timeout || 5 * 1000;
-  this.messenger = options.messenger || require('thehelp-last-ditch');
-
   this.checks = [];
   this.sending = false;
+
+  this.pollInterval = options.pollInterval || 250;
+  localUtil.verifyType('number', this, 'pollInterval');
+
+  this.timeout = options.timeout || 5 * 1000;
+  localUtil.verifyType('number', this, 'timeout');
+
+  this.messenger = options.messenger || require('thehelp-last-ditch');
+  localUtil.verifyType('function', this, 'messenger');
+
+  this.log = options.log || logShim('thehelp-cluster:graceful');
+  localUtil.verifyLog(this.log);
 
   var _this = this;
   this.addCheck(function areWeSending() {
@@ -63,8 +70,6 @@ function Graceful(options) {
 
   this.process = options.process || process;
   this.cluster = options.cluster || cluster;
-  this.log = options.log || logShim('thehelp-cluster:graceful');
-
   this.logPrefix = localUtil.getLogPrefix();
   this._setupListeners();
 
@@ -125,6 +130,9 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
 // you are finished doing something. Return something truthy to signal your readiness for
 // `process.exit()`.
 Graceful.prototype.addCheck = function addCheck(check) {
+  if (!check || typeof check !== 'function') {
+    throw new Error('need to provide a function!');
+  }
   this.checks.push(check);
 };
 
