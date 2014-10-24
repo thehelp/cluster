@@ -5,8 +5,9 @@
 'use strict';
 
 var cluster = require('cluster');
-var core = require('thehelp-core');
 var path = require('path');
+
+var core = require('thehelp-core');
 
 var Master = require('./master');
 var Graceful = require('./graceful');
