@@ -30,7 +30,7 @@ describe('Master', function() {
       expect(master).to.have.property('_workers').that.deep.equal({});
       expect(master).to.have.property('shuttingDown', false);
 
-      expect(master).to.have.property('spinTimeout', 5000);
+      expect(master).to.have.property('spinTimeout', 10000);
       expect(master).to.have.property('delayStart', 60000);
       expect(master).to.have.property('pollInterval', 500);
       expect(master).to.have.property('killTimeout', 7000);

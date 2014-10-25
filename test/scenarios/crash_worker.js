@@ -22,8 +22,10 @@ cluster({
   worker: function() {
     logger.warn('starting worker...');
 
-    fs.readFile('randomness', function(err, file) {
-      logger.info(file.stat);
-    });
+    setTimeout(function() {
+      fs.readFile('randomness', function(err, file) {
+        logger.info(file.stat);
+      });
+    }, 2000);
   }
 });

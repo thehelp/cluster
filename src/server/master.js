@@ -39,7 +39,7 @@ function Master(options) {
   this._workers = {};
   this.shuttingDown = false;
 
-  this.spinTimeout = options.spinTimeout || 5000;
+  this.spinTimeout = options.spinTimeout || 10 * 1000;
   util.verifyType('number', this, 'spinTimeout');
 
   this.delayStart = options.delayStart || 60 * 1000;
