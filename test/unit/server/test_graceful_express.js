@@ -24,9 +24,9 @@ describe('GracefulExpress', function() {
       expect(graceful).to.have.property('graceful', null);
       expect(graceful).to.have.property('shuttingDown', false);
 
-      expect(graceful).to.have.property('responses').that.deep.equal([]);
-      expect(graceful).to.have.property('sockets').that.deep.equal([]);
-      expect(graceful).to.have.property('activeSockets').that.deep.equal([]);
+      expect(graceful).to.have.property('_responses').that.deep.equal([]);
+      expect(graceful).to.have.property('_sockets').that.deep.equal([]);
+      expect(graceful).to.have.property('_activeSockets').that.deep.equal([]);
 
       expect(graceful).to.have.property('inProcessTest', true);
     });
@@ -103,22 +103,22 @@ describe('GracefulExpress', function() {
       graceful._addSocket(socket);
       graceful._addSocket(socket);
 
-      expect(graceful).to.have.property('sockets').that.has.length(1);
+      expect(graceful).to.have.property('_sockets').that.has.length(1);
       expect(socket).to.have.deep.property('on.callCount', 1);
 
       graceful._removeSocket(socket);
 
-      expect(graceful).to.have.property('sockets').that.has.length(0);
+      expect(graceful).to.have.property('_sockets').that.has.length(0);
     });
 
     it('removes an added socket when it emits \'on\' event', function() {
       var socket = new EventEmitter();
       graceful._addSocket(socket);
 
-      expect(graceful).to.have.property('sockets').that.has.length(1);
+      expect(graceful).to.have.property('_sockets').that.has.length(1);
 
       socket.emit('close');
-      expect(graceful).to.have.property('sockets').that.has.length(0);
+      expect(graceful).to.have.property('_sockets').that.has.length(0);
     });
   });
 
@@ -130,14 +130,14 @@ describe('GracefulExpress', function() {
       graceful._addActiveSocket(socket);
       graceful._addActiveSocket(socket);
 
-      expect(graceful).to.have.property('activeSockets').that.has.length(2);
+      expect(graceful).to.have.property('_activeSockets').that.has.length(2);
       expect(socket).to.have.deep.property('on.callCount', 0);
 
       graceful._removeActiveSocket(socket);
-      expect(graceful).to.have.property('activeSockets').that.has.length(1);
+      expect(graceful).to.have.property('_activeSockets').that.has.length(1);
 
       graceful._removeActiveSocket(socket);
-      expect(graceful).to.have.property('activeSockets').that.has.length(0);
+      expect(graceful).to.have.property('_activeSockets').that.has.length(0);
     });
   });
 
@@ -160,8 +160,8 @@ describe('GracefulExpress', function() {
       graceful._addActiveSocket(socket1);
       graceful._addActiveSocket(socket2);
 
-      expect(graceful).to.have.property('activeSockets').that.has.length(2);
-      expect(graceful).to.have.property('sockets').that.has.length(3);
+      expect(graceful).to.have.property('_activeSockets').that.has.length(2);
+      expect(graceful).to.have.property('_sockets').that.has.length(3);
 
       var inactive = graceful._getInactiveSockets();
 

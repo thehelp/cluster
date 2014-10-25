@@ -41,15 +41,16 @@ function GracefulExpress(options) {
 
   this.server = null;
   this.graceful = null;
-  this.shuttingDown = false;
-  this.serverClosed = false;
-
-  this.responses = [];
-  this.sockets = [];
-  this.activeSockets = [];
 
   var startFile = process.mainModule.filename;
   this._setOption('inProcessTest', options, /mocha$/.test(startFile));
+
+  this.shuttingDown = false;
+  this._serverClosed = false;
+
+  this._responses = [];
+  this._sockets = [];
+  this._activeSockets = [];
 
   //both here for symmetry; unlikely that both of these are available on construction
   this.setGraceful(options.graceful || Graceful.instance);
@@ -172,7 +173,8 @@ GracefulExpress.prototype._onClose = function _onClose() {
     clearInterval(this.interval);
     this.interval = null;
   }
-  this.serverClosed = true;
+
+  this._serverClosed = true;
 };
 
 // `_onShutdown` runs when `Graceful's 'shutdown' event fires. It first http server to
@@ -204,10 +206,11 @@ GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
 
   //if we never got the server, we never registered for the server 'close' event
   if (!this.server) {
-    return this.responses.length === 0;
+    return this._responses.length === 0;
   }
 
-  return this.serverClosed;
+
+  return this._serverClosed;
 };
 
 // Helper methods
@@ -233,23 +236,23 @@ GracefulExpress.prototype._setOption = function _setOption(name, options, defaul
 
 // `_closeConnAfterResponses` calls `_preventKeepAlive` on every active request
 GracefulExpress.prototype._closeConnAfterResponses = function _closeConnAfterResponses() {
-  for (var i = 0, max = this.responses.length; i < max; i += 1) {
-    var res = this.responses[i];
+  for (var i = 0, max = this._responses.length; i < max; i += 1) {
+    var res = this._responses[i];
     this._preventKeepAlive(res);
   }
 };
 
 // `_addResponse` adds `res` to the list of in-progress responses
 GracefulExpress.prototype._addResponse = function _addResponse(res) {
-  this.responses.push(res);
+  this._responses.push(res);
 };
 
 // `_removeResponse` removes `res` from the list of in-progress responses
 GracefulExpress.prototype._removeResponse = function _removeResponse(res) {
-  for (var i = 0, max = this.responses.length; i < max; i += 1) {
-    var element = this.responses[i];
+  for (var i = 0, max = this._responses.length; i < max; i += 1) {
+    var element = this._responses[i];
     if (element === res) {
-      this.responses = this.responses.slice(0, i).concat(this.responses.slice(i + 1));
+      this._responses = this._responses.slice(0, i).concat(this._responses.slice(i + 1));
       return;
     }
   }
@@ -280,16 +283,16 @@ GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets
 };
 
 // `_getInactiveSockets` builds a list of inactive sockets by looping through all
-// `this.sockets`, ensuring that they are not present in `this.activeSockets`
+// `this._sockets`, ensuring that they are not present in `this._activeSockets`
 GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
   var inactive = [];
 
-  for (var i = 0, iMax = this.sockets.length; i < iMax; i += 1) {
-    var socket = this.sockets[i];
+  for (var i = 0, iMax = this._sockets.length; i < iMax; i += 1) {
+    var socket = this._sockets[i];
     var add = true;
 
-    for (var j = 0, jMax = this.activeSockets.length; j < jMax; j += 1) {
-      var active = this.activeSockets[j];
+    for (var j = 0, jMax = this._activeSockets.length; j < jMax; j += 1) {
+      var active = this._activeSockets[j];
 
       if (socket === active) {
         add = false;
@@ -305,51 +308,51 @@ GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
   return inactive;
 };
 
-// `_addActiveSocket` adds provided socket to `this.activeSockets`, with no
+// `_addActiveSocket` adds provided socket to `this._activeSockets`, with no
 // duplicate-checking
 GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
-  this.activeSockets.push(socket);
+  this._activeSockets.push(socket);
 };
 
-// `_removeActiveSocket` removes provided socket from `this.activeSockets`
+// `_removeActiveSocket` removes provided socket from `this._activeSockets`
 GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(socket) {
-  for (var i = 0, max = this.activeSockets.length; i < max; i += 1) {
-    var element = this.activeSockets[i];
+  for (var i = 0, max = this._activeSockets.length; i < max; i += 1) {
+    var element = this._activeSockets[i];
 
     if (element === socket) {
-      this.activeSockets = this.activeSockets.slice(0, i)
-        .concat(this.activeSockets.slice(i + 1));
+      this._activeSockets = this._activeSockets.slice(0, i)
+        .concat(this._activeSockets.slice(i + 1));
 
       return;
     }
   }
 };
 
-// `_addSocket` adds provided socket to `this.sockets` if it isn't already in the list
+// `_addSocket` adds provided socket to `this._sockets` if it isn't already in the list
 GracefulExpress.prototype._addSocket = function _addSocket(socket) {
   var _this = this;
 
-  for (var i = 0, max = this.sockets.length; i < max; i += 1) {
-    var element = this.sockets[i];
+  for (var i = 0, max = this._sockets.length; i < max; i += 1) {
+    var element = this._sockets[i];
 
     if (element === socket) {
       return;
     }
   }
 
-  this.sockets.push(socket);
+  this._sockets.push(socket);
 
   socket.on('close', function() {
     _this._removeSocket(socket);
   });
 };
 
-// `_removeSocket` removes provided socket from `this.sockets`
+// `_removeSocket` removes provided socket from `this._sockets`
 GracefulExpress.prototype._removeSocket = function _removeSocket(socket) {
-  for (var i = 0, max = this.sockets.length; i < max; i += 1) {
-    var element = this.sockets[i];
+  for (var i = 0, max = this._sockets.length; i < max; i += 1) {
+    var element = this._sockets[i];
     if (element === socket) {
-      this.sockets = this.sockets.slice(0, i).concat(this.sockets.slice(i + 1));
+      this._sockets = this._sockets.slice(0, i).concat(this._sockets.slice(i + 1));
       return;
     }
   }
