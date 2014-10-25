@@ -31,8 +31,8 @@ describe('Graceful', function() {
 
     it('sets right defaults', function() {
       expect(graceful).to.have.property('shuttingDown', false);
-      expect(graceful).to.have.property('checks').that.has.length(1);
-      expect(graceful).to.have.property('sending', false);
+      expect(graceful).to.have.property('_checks').that.has.length(1);
+      expect(graceful).to.have.property('_sending', false);
 
       expect(graceful).to.have.property('pollInterval', 250);
       expect(graceful).to.have.property('timeout', 5000);
@@ -136,16 +136,16 @@ describe('Graceful', function() {
     });
 
     it('adds element to checks if function', function() {
-      expect(graceful.checks).to.have.length(1);
+      expect(graceful._checks).to.have.length(1);
       graceful.addCheck(function() {
         return true;
       });
-      expect(graceful.checks).to.have.length(2);
+      expect(graceful._checks).to.have.length(2);
       expect(graceful._check()).to.equal(true);
       graceful.addCheck(function() {
         return false;
       });
-      expect(graceful.checks).to.have.length(3);
+      expect(graceful._checks).to.have.length(3);
       expect(graceful._check()).to.equal(false);
     });
   });
@@ -157,7 +157,7 @@ describe('Graceful', function() {
       graceful._sendError();
 
       expect(graceful).to.have.deep.property('messenger.callCount', 0);
-      expect(graceful).to.have.property('sending', false);
+      expect(graceful).to.have.property('_sending', false);
     });
 
     it('sets sending to true before calling messenger', function() {
@@ -166,7 +166,7 @@ describe('Graceful', function() {
       graceful._sendError({});
 
       expect(graceful).to.have.deep.property('messenger.callCount', 1);
-      expect(graceful).to.have.property('sending', true);
+      expect(graceful).to.have.property('_sending', true);
     });
 
     it('sets sending to false before after messenger returns', function() {
@@ -175,30 +175,30 @@ describe('Graceful', function() {
       graceful._sendError({});
 
       expect(graceful).to.have.deep.property('messenger.callCount', 1);
-      expect(graceful).to.have.property('sending', false);
+      expect(graceful).to.have.property('_sending', false);
     });
   });
 
   describe('#_check', function() {
-    it('returns true if this.checks is null', function() {
-      graceful.checks = null;
+    it('returns true if this._checks is null', function() {
+      graceful._checks = null;
       expect(graceful._check()).to.equal(true);
     });
 
-    it('returns true if this.checks is empty', function() {
-      graceful.checks = [];
+    it('returns true if this._checks is empty', function() {
+      graceful._checks = [];
       expect(graceful._check()).to.equal(true);
     });
 
     it('returns true if one check returns true', function() {
-      graceful.checks = [function() {
+      graceful._checks = [function() {
         return true;
       }];
       expect(graceful._check()).to.equal(true);
     });
 
     it('returns true if one check returns false', function() {
-      graceful.checks = [function() {
+      graceful._checks = [function() {
         return false;
       }];
       expect(graceful._check()).to.equal(false);
@@ -262,32 +262,32 @@ describe('Graceful', function() {
 
   describe('#_die', function() {
     it('calls process.exit() with code 0 if no error', function() {
-      graceful.process = {
+      graceful._process = {
         exit: sinon.stub()
       };
       graceful._die();
 
-      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+      expect(graceful).to.have.deep.property('_process.exit.callCount', 1);
 
-      var call = graceful.process.exit.getCall(0);
+      var call = graceful._process.exit.getCall(0);
       expect(call).to.have.property('args').that.deep.equal([0]);
     });
 
     it('calls process.exit() with code 1 if error', function() {
-      graceful.process = {
+      graceful._process = {
         exit: sinon.stub()
       };
       graceful.error = {};
       graceful._die();
 
-      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+      expect(graceful).to.have.deep.property('_process.exit.callCount', 1);
 
-      var call = graceful.process.exit.getCall(0);
+      var call = graceful._process.exit.getCall(0);
       expect(call).to.have.property('args').that.deep.equal([1]);
     });
 
     it('calls process.exit() with exitCode from error', function() {
-      graceful.process = {
+      graceful._process = {
         exit: sinon.stub()
       };
       graceful.error = {
@@ -295,9 +295,9 @@ describe('Graceful', function() {
       };
       graceful._die();
 
-      expect(graceful).to.have.deep.property('process.exit.callCount', 1);
+      expect(graceful).to.have.deep.property('_process.exit.callCount', 1);
 
-      var call = graceful.process.exit.getCall(0);
+      var call = graceful._process.exit.getCall(0);
       expect(call).to.have.property('args').that.deep.equal([4]);
     });
   });

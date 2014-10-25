@@ -48,8 +48,9 @@ function Graceful(options) {
   options = options || {};
 
   this.shuttingDown = false;
-  this.checks = [];
-  this.sending = false;
+
+  this._checks = [];
+  this._sending = false;
 
   this.pollInterval = options.pollInterval || 250;
   localUtil.verifyType('number', this, 'pollInterval');
@@ -65,12 +66,12 @@ function Graceful(options) {
 
   var _this = this;
   this.addCheck(function areWeSending() {
-    return _this.sending === false;
+    return _this._sending === false;
   });
 
-  this.process = options.process || process;
-  this.cluster = options.cluster || cluster;
-  this.logPrefix = localUtil.getLogPrefix();
+  this._process = options._process || process;
+  this._cluster = options._cluster || cluster;
+  this._logPrefix = localUtil.getLogPrefix();
   this._setupListeners();
 
   if (Graceful.instance) {
@@ -119,7 +120,7 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
     this.shuttingDown = true;
     this.error = err;
 
-    this.log.warn(this.logPrefix + ' gracefully shutting down!');
+    this.log.warn(this._logPrefix + ' gracefully shutting down!');
     this._sendError(err, info);
     this.emit('shutdown');
     this._exit();
@@ -133,35 +134,35 @@ Graceful.prototype.addCheck = function addCheck(check) {
   if (!check || typeof check !== 'function') {
     throw new Error('need to provide a function!');
   }
-  this.checks.push(check);
+  this._checks.push(check);
 };
 
 // Helper methods
 // ========
 
 // `_sendError` uses `this.messenger` to save/send the error provided to `shutdown()`. It
-// it sets `this.sending = true` so we won't take the process down before the call is
+// it sets `this._sending = true` so we won't take the process down before the call is
 // complete.
 Graceful.prototype._sendError = function _sendError(err, info) {
   var _this = this;
 
   if (err) {
-    this.sending = true;
+    this._sending = true;
 
     this.messenger(err, info, function() {
-      _this.sending = false;
+      _this._sending = false;
     });
   }
 };
 
 // `_check` returns true if all registered check methods returned true.
 Graceful.prototype._check = function _check() {
-  if (!this.checks || !this.checks.length) {
+  if (!this._checks || !this._checks.length) {
     return true;
   }
 
-  for (var i = 0, max = this.checks.length; i < max; i += 1) {
-    var check = this.checks[i];
+  for (var i = 0, max = this._checks.length; i < max; i += 1) {
+    var check = this._checks[i];
 
     if (!check()) {
       return false;
@@ -177,11 +178,11 @@ Graceful.prototype._check = function _check() {
 Graceful.prototype._exit = function _exit() {
   var _this = this;
 
-  this.log.info(this.logPrefix + ' calling all provided pre-exit check functions...');
+  this.log.info(this._logPrefix + ' calling all provided pre-exit check functions...');
 
   if (this._check()) {
     this._clearTimers();
-    this._finalLog('info', this.logPrefix + ' passed all checks! Shutting down!');
+    this._finalLog('info', this._logPrefix + ' passed all checks! Shutting down!');
   }
   else if (!this.interval) {
     this.interval = setInterval(function tryAgain() {
@@ -190,7 +191,7 @@ Graceful.prototype._exit = function _exit() {
 
     this.timeout = setTimeout(function forceKill() {
       _this._clearTimers();
-      _this._finalLog('warn', _this.logPrefix + ' checks took too long. ' +
+      _this._finalLog('warn', _this._logPrefix + ' checks took too long. ' +
         'Killing process now!');
 
     }, this.timeout);
@@ -236,7 +237,7 @@ Graceful.prototype._finalLog = function _finalLog(type, message) {
 // `shutdown()`).
 Graceful.prototype._die = function _die() {
   var code = this.error ? this.error.exitCode || 1 : 0;
-  this.process.exit(code);
+  this._process.exit(code);
 };
 
 // `_setupListeners` sets up some event wireups. We start the shutdown process when the
@@ -244,15 +245,15 @@ Graceful.prototype._die = function _die() {
 // on process exit.
 Graceful.prototype._setupListeners = function _setupListeners() {
   var _this = this;
-  var cluster = this.cluster;
-  var process = this.process;
+  var cluster = this._cluster;
+  var process = this._process;
 
   process.on('SIGTERM', function gracefulShutdown() {
     _this.shutdown();
   });
 
   process.on('exit', function(code) {
-    _this.log.warn(_this.logPrefix + ' about to exit with code ' + code);
+    _this.log.warn(_this._logPrefix + ' about to exit with code ' + code);
   });
 
   if (cluster.worker) {
