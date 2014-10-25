@@ -278,7 +278,7 @@ GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets
 
   for (var i = 0, max = inactive.length; i < max; i += 1) {
     var socket = inactive[i];
-    socket.destroy();
+    socket.destroySoon();
   }
 };
 
