@@ -119,8 +119,8 @@ Startup.prototype._onError = function _onError(err) {
   });
 };
 
-// `_defaultMasterStart` what starts up the master process if you provide your own
-// `master` startup function on startup.
+// `_defaultMasterStart` what starts up the master process if you don't provide your own
+// `master` startup function.
 Startup.prototype._defaultMasterStart = function _defaultMasterStart() {
   var Master = require('./master');
   var master = new Master(this.masterOptions);
