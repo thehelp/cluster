@@ -123,7 +123,13 @@ Graceful.prototype.shutdown = function shutdown(err, info) {
 
     this.log.warn(this._logPrefix + ' gracefully shutting down!');
     this._sendError(err, info);
-    this.emit('shutdown');
+    try {
+      this.emit('shutdown');
+    }
+    catch (err) {
+      this.log.error('Graceful: shutdown event handler threw: ' +
+        core.breadcrumbs.toString(err));
+    }
     this._exit();
   }
 };
@@ -171,7 +177,7 @@ Graceful.prototype._check = function _check() {
       }
     }
     catch (err) {
-      this.log.error('Check function returned error: ' + core.breadcrumbs.toString(err));
+      this.log.error('Graceful: check function threw: ' + core.breadcrumbs.toString(err));
     }
   }
 

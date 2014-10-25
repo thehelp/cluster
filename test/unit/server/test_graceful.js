@@ -20,7 +20,10 @@ describe('Graceful', function() {
   });
 
   afterEach(function() {
+    // want to reset things to a good state after every test
     Graceful.instance = null;
+
+    // log.warn called in process.on('exit') handler
     graceful.log = {
       warn: sinon.stub()
     };
@@ -54,7 +57,6 @@ describe('Graceful', function() {
     });
 
     it('logs if previous instance has been created', function() {
-
       var log = {
         verbose: sinon.stub(),
         info: sinon.stub(),
@@ -109,7 +111,7 @@ describe('Graceful', function() {
   describe('#shutdown', function() {
     it('doesn\'t call _sendError or _exit when called more than once', function() {
       graceful._sendError = sinon.stub();
-      graceful._exit = sinon.spy();
+      graceful._exit = sinon.stub();
       graceful.once('shutdown', function() {
         graceful.shutdown();
       });
@@ -118,6 +120,22 @@ describe('Graceful', function() {
       graceful.shutdown();
 
       expect(graceful).to.have.deep.property('_sendError.callCount', 1);
+      expect(graceful).to.have.deep.property('_exit.callCount', 1);
+    });
+
+    it('logs and continues when a shutdown event handler throws an error', function() {
+      graceful._exit = sinon.stub();
+      graceful.on('shutdown', function() {
+        throw new Error('shutdown handler had a problem');
+      });
+      graceful.log = {
+        info: sinon.stub(),
+        warn: sinon.stub(),
+        error: sinon.stub()
+      };
+      graceful.shutdown();
+
+      expect(graceful).to.have.deep.property('log.error.callCount', 1);
       expect(graceful).to.have.deep.property('_exit.callCount', 1);
     });
   });
@@ -206,7 +224,7 @@ describe('Graceful', function() {
 
     it('logs and continues when a check function throws an error', function() {
       graceful._checks = [function() {
-        throw new Error('check function had a problem')
+        throw new Error('check function had a problem');
       }];
       graceful.log = {
         error: sinon.stub()
