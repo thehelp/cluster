@@ -91,7 +91,6 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
     return next();
   }
 
-  this._addSocket(req.socket);
   this._addActiveSocket(req.socket);
   this._addResponse(res);
 
@@ -141,6 +140,7 @@ GracefulExpress.prototype.setServer = function setServer(server) {
     util.verifyServer(this.server);
 
     this.server.on('close', this._onClose.bind(this));
+    this.server.on('connection', this._onConnection.bind(this));
   }
 };
 
@@ -168,7 +168,7 @@ GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
   next(err);
 };
 
-// `_onClose` runs with the http server's 'close' event fires
+// `_onClose` runs when the http server's 'close' event fires
 GracefulExpress.prototype._onClose = function _onClose() {
   if (this.interval) {
     clearInterval(this.interval);
@@ -176,6 +176,12 @@ GracefulExpress.prototype._onClose = function _onClose() {
   }
 
   this._serverClosed = true;
+};
+
+// `_onConnection` runs when the http server's 'connection' event fires. It's how we can
+// be sure that we're capturing all sockets connected to the server.
+GracefulExpress.prototype._onConnection = function _onClose(socket) {
+  this._addSocket(socket);
 };
 
 // `_onShutdown` runs when `Graceful's 'shutdown' event fires. It first http server to
@@ -209,7 +215,6 @@ GracefulExpress.prototype._isReadyForShutdown = function _isReadyForShutdown() {
   if (!this.server) {
     return this._responses.length === 0;
   }
-
 
   return this._serverClosed;
 };
