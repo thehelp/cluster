@@ -10,6 +10,11 @@ var Master = require('../../../src/server/master');
 describe('Master', function() {
   var master;
 
+  before(function() {
+    // Because Master registers as cluster.on('disconnect') on every construction
+    process.setMaxListeners(0);
+  });
+
   beforeEach(function() {
     master = new Master();
   });
