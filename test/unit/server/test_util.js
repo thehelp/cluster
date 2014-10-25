@@ -32,7 +32,7 @@ describe('util', function() {
           field: NaN
         };
         util.verifyType('number', obj, 'field');
-      }).to['throw']().that.match(/must be a countable number/)
+      }).to['throw']().that.match(/must be a countable number/);
     });
   });
 

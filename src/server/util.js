@@ -28,12 +28,18 @@ exports.getLogPrefix = function getLogPrefix() {
   }
 };
 
+exports.verifyCb = function verifyType(cb) {
+  if (typeof cb !== 'function') {
+    throw new Error('this is an async function. the callback is required');
+  }
+};
+
 exports.verifyType = function verifyType(type, object, field) {
   if (typeof object[field] !== type) {
     throw new Error('field ' + field + ' must be a ' + type);
   }
   if (type === 'number' && isNaN(object[field])) {
-    throw new Error('field ' + field + ' is NaN; it must be a countable number')
+    throw new Error('field ' + field + ' is NaN; it must be a countable number');
   }
 };
 

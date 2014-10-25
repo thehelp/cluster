@@ -10,7 +10,7 @@ var cluster = require('cluster');
 var logShim = require('thehelp-log-shim');
 
 var Graceful = require('./graceful');
-
+var util = require('./util');
 
 /*
 The `constructor` has no required parameters. Optional parameters:
@@ -27,6 +27,8 @@ remaining worker processes
 for a more decisive kill
 + `numberWorkers` - worker processes to start and maintain. defaults to `1` or
 `process.env.THEHELP_NUMBER_WORDERS`
++ `log` - a logger object: `info`, `warn` and `error` keys with the signature
+`function(string)`. By default, whatever `thehelp-log-shim` gives us.
 
 */
 function Master(options) {
@@ -34,21 +36,32 @@ function Master(options) {
 
   options = options || {};
 
+  this._workers = {};
+  this.shuttingDown = false;
+
   this.spinTimeout = options.spinTimeout || 5000;
+  util.verifyType('number', this, 'spinTimeout');
+
   this.delayStart = options.delayStart || 60 * 1000;
+  util.verifyType('number', this, 'delayStart');
+
   this.pollInterval = options.pollInterval || 500;
+  util.verifyType('number', this, 'pollInterval');
+
   this.killTimeout = options.killTimeout || 7000;
+  util.verifyType('number', this, 'killTimeout');
+
   this.numberWorkers = options.numberWorkers ||
     parseInt(process.env.THEHELP_NUMBER_WORKERS, 10) || 1;
+  util.verifyType('number', this, 'numberWorkers');
 
-  this.workers = {};
-  this.closed = false;
-
-  this.cluster = options.cluster || cluster;
-  this.cluster.on('disconnect', this._restartWorker.bind(this));
+  this.setGraceful(options.graceful || Graceful.instance);
 
   this.log = options.log || logShim('thehelp-cluster:master');
-  this.setGraceful(options.graceful || Graceful.instance);
+  util.verifyLog(options.log);
+
+  this._cluster = options._cluster || cluster;
+  this._cluster.on('disconnect', this._restartWorker.bind(this));
 
   if (Master.instance) {
     this.log.warn('More than one Master instance created in this process. ' +
@@ -72,42 +85,27 @@ Master.prototype.start = function start() {
 // when workers are still alive. With this in place, you won't need to call `shutdown()`
 // or `stop()` yourself.
 Master.prototype.setGraceful = function setGraceful(graceful) {
-  var _this = this;
-
   if (graceful) {
     this.graceful = graceful;
+    util.verifyGraceful(this.graceful);
 
     //default timeout for sending SIGINT is longer than timeout for Graceful force kill
     this.graceful.timeout = this.killTimeout + this.pollInterval * 2;
 
-    this.graceful.on('shutdown', function stopWorkers() {
-      _this.shutdown();
-    });
-
-    this.graceful.addCheck(function areWorkersActive() {
-      return !_this.workersActive;
-    });
+    this.graceful.on('shutdown', this._onShutdown.bind(this));
+    this.graceful.addCheck(this._isReadyForShutdown.bind(this));
   }
-};
-
-// `shutdown` uses `stop` to kill all workers, then sets `this.workersActive` back to
-// false so `Graceful` knows that it's safe to take the process down.
-Master.prototype.shutdown = function shutdown() {
-  var _this = this;
-
-  this.workersActive = true;
-  this.stop(function() {
-    _this.workersActive = false;
-  });
 };
 
 // `stop` kills all worker processes, first using a 'SIGTERM' signal to allow for graceful
 // shutdown. If the process isn't dead by `this.killTimeout` a 'SIGINT' signal is sent.
 Master.prototype.stop = function stop(cb) {
   var _this = this;
+  util.verifyCb(cb);
+
   this.log.info('Stopping all workers with SIGTERM...');
 
-  this.closed = true;
+  this.shuttingDown = true;
   this._sendToAll('SIGTERM');
 
   var timeout = setTimeout(function forceKill() {
@@ -117,7 +115,7 @@ Master.prototype.stop = function stop(cb) {
   }, _this.killTimeout);
 
   var interval = setInterval(function checkAndReturn() {
-    if (!Object.keys(_this.cluster.workers).length) {
+    if (!Object.keys(_this._cluster.workers).length) {
 
       clearInterval(interval);
       if (timeout) {
@@ -136,29 +134,47 @@ Master.prototype.stop = function stop(cb) {
 // Helper functions
 // ========
 
+// `_onShutdown` is called when `Graceful` starts shutting down. It uses `stop` to kill
+// all workers, then sets `this._workersActive` back to false so `_isReadyForShutdown()`
+// knows that it's safe to take the process down.
+Master.prototype._onShutdown = function _onShutdown() {
+  var _this = this;
+
+  this._workersActive = true;
+  this.stop(function() {
+    _this._workersActive = false;
+  });
+};
+
+// `_isReadyForShutdown` is registered as a `Graceful` 'check' function, letting it know
+// when we're safe to shut down the process.
+Master.prototype._isReadyForShutdown = function _isReadyForShutdown() {
+  return !this._workersActive;
+};
+
 // `_startWorker` does a basic `cluster.fork()`, saving the result and the current time to
-// `this.workers`.
+// `this._workers`.
 Master.prototype._startWorker = function _startWorker() {
-  var worker = this.cluster.fork();
+  var worker = this._cluster.fork();
   var pid = worker.process.pid;
-  this.workers[pid] = {
+  this._workers[pid] = {
     pid: pid,
     id: worker.id,
     start: new Date()
   };
 };
 
-// `_restartWorker` first eliminates the dead worker from `this.workers`, then either
+// `_restartWorker` first eliminates the dead worker from `this._workers`, then either
 // starts a new worker immediately, or after a delay of `this.delayStart` if the process
 // wasn't alive for longer than `this.spinTimeout`.
 Master.prototype._restartWorker = function _restartWorker(worker) {
   var _this = this;
 
   var pid = worker.process.pid;
-  var data = this.workers[pid];
-  delete this.workers[pid];
+  var data = this._workers[pid];
+  delete this._workers[pid];
 
-  if (!this.closed) {
+  if (!this.shuttingDown) {
     var now = new Date();
     var start = data ? data.start : now;
     var delta = now.getTime() - start.getTime();
@@ -178,22 +194,22 @@ Master.prototype._restartWorker = function _restartWorker(worker) {
       this._startWorker();
     }
 
-    if (Object.keys(this.cluster.workers).length === 0) {
+    if (Object.keys(this._cluster.workers).length === 0) {
       this.log.error('No workers currently running!');
     }
   }
 };
 
-// `_sendToAll` sends the provided signal to each worker still listed in `this.workers`
+// `_sendToAll` sends the provided signal to each worker still listed in `this._workers`
 Master.prototype._sendToAll = function _sendToAll(signal) {
-  var keys = Object.keys(this.cluster.workers);
+  var keys = Object.keys(this._cluster.workers);
 
   for (var i = 0, max = keys.length; i < max; i += 1) {
     var key = keys[i];
-    var worker = this.cluster.workers[key];
+    var worker = this._cluster.workers[key];
     var pid = worker.process.pid;
 
-    if (this.workers[pid]) {
+    if (this._workers[pid]) {
       process.kill(pid, signal);
     }
   }
