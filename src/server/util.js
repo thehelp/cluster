@@ -32,10 +32,17 @@ exports.verifyType = function verifyType(type, object, field) {
   if (typeof object[field] !== type) {
     throw new Error('field ' + field + ' must be a ' + type);
   }
+  if (type === 'number' && isNaN(object[field])) {
+    throw new Error('field ' + field + ' is NaN; it must be a countable number')
+  }
 };
 
 exports.logLevels = ['verbose', 'info', 'warn', 'error'];
 exports.verifyLog = function verifyLog(object) {
+  if (!object) {
+    return;
+  }
+
   exports.logLevels.forEach(function(level) {
     if (typeof object[level] !== 'function') {
       throw new Error('Provided log object must have ' + level + ' function');
