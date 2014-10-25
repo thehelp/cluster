@@ -34,21 +34,29 @@ function Startup(options) {
 
   options = options || {};
 
+  this._logPrefix = util.getLogPrefix();
+
   this.worker = options.worker;
   if (!this.worker) {
     throw new Error('Need to provide a worker callback!');
   }
+  util.verifyType('function', this, 'worker');
 
   this.log = options.log || logShim('thehelp-cluster:startup');
-  this._logPrefix = util.getLogPrefix();
+  util.verifyLog(this.log);
 
   this.masterOptions = options.masterOptions;
   this.master = options.master || this._defaultMasterStart.bind(this);
+  util.verifyType('function', this, 'master');
 
   this.errorHandler = options.errorHandler;
   //errorHandler supercedes messenger
   if (!this.errorHandler) {
     this.messenger = options.messenger || require('thehelp-last-ditch');
+    util.verifyType('function', this, 'messenger');
+  }
+  else {
+    util.verifyType('function', this, 'errorHandler');
   }
 
   this._domain = domain.create();

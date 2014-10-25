@@ -27,6 +27,14 @@ describe('Startup', function() {
       }).to['throw']().that.match(/provide a worker/);
     });
 
+    it('throws if worker is not a function', function() {
+      expect(function() {
+        new Startup({
+          worker: 'six'
+        });
+      }).to['throw']().that.match(/worker must be a function/);
+    });
+
     it('provided messenger is set', function() {
       var messenger = sinon.stub();
       startup = new Startup({
@@ -36,11 +44,59 @@ describe('Startup', function() {
       expect(startup).to.have.deep.property('messenger', messenger);
     });
 
+    it('throws if messenger is not a function', function() {
+      expect(function() {
+        new Startup({
+          worker: function() {},
+          messenger: 'six'
+        });
+      }).to['throw']().that.match(/messenger must be a function/);
+    });
+
     it('sets up last ditch if no messenger provided', function() {
       startup = new Startup({
         worker: sinon.stub()
       });
       expect(startup).to.have.deep.property('messenger', require('thehelp-last-ditch'));
+    });
+
+    it('messenger left at null if errorHandler is provided', function() {
+      startup = new Startup({
+        worker: function() {},
+        errorHandler: function() {}
+      });
+      expect(startup).not.to.have.property('messenger');
+    });
+
+    it('throws if errorHandler is not a function', function() {
+      expect(function() {
+        new Startup({
+          worker: function() {},
+          errorHandler: 'six'
+        });
+      }).to['throw']().that.match(/errorHandler must be a function/);
+    });
+
+    it('throws if provided log is missing error level', function() {
+      expect(function() {
+        new Startup({
+          worker: function() {},
+          log: {
+            verbose: function() {},
+            info: function() {},
+            warn: function() {}
+          }
+        });
+      }).to['throw']().that.match(/log object must have error function/);
+    });
+
+    it('throws if master is not a function', function() {
+      expect(function() {
+        new Startup({
+          worker: function() {},
+          master: 'six'
+        });
+      }).to['throw']().that.match(/master must be a function/);
     });
   });
 
