@@ -22,6 +22,7 @@ var cluster = require('cluster');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
+var core = require('thehelp-core');
 var logShim = require('thehelp-log-shim');
 
 var localUtil = require('./util');
@@ -164,8 +165,13 @@ Graceful.prototype._check = function _check() {
   for (var i = 0, max = this._checks.length; i < max; i += 1) {
     var check = this._checks[i];
 
-    if (!check()) {
-      return false;
+    try {
+      if (!check()) {
+        return false;
+      }
+    }
+    catch (err) {
+      this.log.error('Check function returned error: ' + core.breadcrumbs.toString(err));
     }
   }
 

@@ -203,6 +203,17 @@ describe('Graceful', function() {
       }];
       expect(graceful._check()).to.equal(false);
     });
+
+    it('logs and continues when a check function throws an error', function() {
+      graceful._checks = [function() {
+        throw new Error('check function had a problem')
+      }];
+      graceful.log = {
+        error: sinon.stub()
+      };
+      expect(graceful._check()).to.equal(true);
+      expect(graceful).to.have.deep.property('log.error.callCount', 1);
+    });
   });
 
   describe('#_exit', function() {
