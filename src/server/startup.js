@@ -49,14 +49,14 @@ function Startup(options) {
   this.master = options.master || this._defaultMasterStart.bind(this);
   util.verifyType('function', this, 'master');
 
-  this.errorHandler = options.errorHandler;
-  //errorHandler supercedes messenger
-  if (!this.errorHandler) {
+  this.graceful = options.graceful || Graceful.instance;
+  // graceful supercedes messenger
+  if (!this.graceful) {
     this.messenger = options.messenger || require('thehelp-last-ditch');
     util.verifyType('function', this, 'messenger');
   }
   else {
-    util.verifyType('function', this, 'errorHandler');
+    util.verifyGraceful(this.graceful);
   }
 
   this._domain = domain.create();
@@ -90,11 +90,8 @@ Startup.prototype.start = function start() {
 it's definitely something serious, send it via the `messenger()` callback then start the
 process of graceful shutdown.
 
-If [`Graceful.instance`](./graceful.html) is found, its `shutdown()` method will be
-called, preventing the `messenger()` handler from being called.
-
-Lastly `errorHandler` can be specified for custom error-handling logic, superceding all
-other behavior in this method.
+If [`Graceful.instance`](./graceful.html) has been provided, its `shutdown()` method will
+be called, preventing the `messenger()` handler from being called.
 */
 Startup.prototype._onError = function _onError(err) {
   var _this = this;
@@ -103,15 +100,11 @@ Startup.prototype._onError = function _onError(err) {
   delete err.domain;
   delete err.domainEmitter;
 
-  if (this.errorHandler) {
-    return this.errorHandler(err);
-  }
-
   this.log.error(this._logPrefix + ' top-level domain error, taking down process: ' +
     core.breadcrumbs.toString(err));
 
-  if (Graceful.instance) {
-    return Graceful.instance.shutdown(err);
+  if (this.graceful) {
+    return this.graceful.shutdown(err);
   }
 
   this.messenger(err, null, function() {

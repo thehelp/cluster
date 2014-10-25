@@ -6,7 +6,7 @@ var expect = test.expect;
 var sinon = test.sinon;
 
 var Startup = require('../../../src/server/startup');
-var Graceful = require('../../../src/server/graceful');
+
 
 describe('Startup', function() {
   var startup;
@@ -60,21 +60,26 @@ describe('Startup', function() {
       expect(startup).to.have.deep.property('messenger', require('thehelp-last-ditch'));
     });
 
-    it('messenger left at null if errorHandler is provided', function() {
+    it('messenger left at null if graceful is provided', function() {
       startup = new Startup({
         worker: function() {},
-        errorHandler: function() {}
+        graceful: {
+          on: function() {},
+          shutdown: function() {}
+        }
       });
       expect(startup).not.to.have.property('messenger');
     });
 
-    it('throws if errorHandler is not a function', function() {
+    it('throws if graceful is missing "on" function', function() {
       expect(function() {
         new Startup({
           worker: function() {},
-          errorHandler: 'six'
+          graceful: {
+            shutdown: function() {}
+          }
         });
-      }).to['throw']().that.match(/errorHandler must be a function/);
+      }).to['throw']().that.match(/graceful object must have on method/);
     });
 
     it('throws if provided log is missing error level', function() {
@@ -101,29 +106,18 @@ describe('Startup', function() {
   });
 
   describe('#_onError', function() {
-    it('only calls errorHandler if provided', function() {
-      Graceful.instance = null;
-
-      startup.errorHandler = sinon.stub();
-      startup._onError(new Error('test error'));
-
-      expect(startup).to.have.deep.property('errorHandler.callCount', 1);
-      expect(startup).to.have.deep.property('messenger.callCount', 0);
-    });
-
     it('calls Graceful.instance.shutdown() if available', function() {
-      Graceful.instance = {
+      startup.graceful = {
         shutdown: sinon.stub()
       };
 
       startup._onError(new Error('test error'));
 
-      expect(Graceful).to.have.deep.property('instance.shutdown.callCount', 1);
+      expect(startup).to.have.deep.property('graceful.shutdown.callCount', 1);
       expect(startup).to.have.deep.property('messenger.callCount', 0);
     });
 
-    it('only calls messenger() and process.kill if nothing else available', function() {
-      Graceful.instance = null;
+    it('only calls messenger() and process.kill if no graceful instance', function() {
       startup.messenger = sinon.stub().yields();
       startup._process = {
         kill: sinon.stub()

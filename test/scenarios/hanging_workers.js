@@ -18,6 +18,8 @@ cluster({
     master.start();
   },
   worker: function() {
+    logger.warn('Starting worker...');
+
     var express = require('express');
     var app = express();
 
