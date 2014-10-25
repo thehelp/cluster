@@ -40,7 +40,7 @@ function Startup(options) {
   }
 
   this.log = options.log || logShim('thehelp-cluster:startup');
-  this.logPrefix = util.getLogPrefix();
+  this._logPrefix = util.getLogPrefix();
 
   this.masterOptions = options.masterOptions;
   this.master = options.master || this._defaultMasterStart.bind(this);
@@ -51,11 +51,11 @@ function Startup(options) {
     this.messenger = options.messenger || require('thehelp-last-ditch');
   }
 
-  this.domain = domain.create();
-  this.domain.on('error', this._onError.bind(this));
+  this._domain = domain.create();
+  this._domain.on('error', this._onError.bind(this));
 
-  this.process = options.process || process;
-  this.cluster = options.cluster || cluster;
+  this._process = options._process || process;
+  this._cluster = options._cluster || cluster;
 }
 
 module.exports = Startup;
@@ -66,11 +66,11 @@ module.exports = Startup;
 // `start` checks whether the current process is the master, then calls the appropriate
 // `master` or `worker` in the contxt of a top-level domain.
 Startup.prototype.start = function start() {
-  if (this.cluster.isMaster) {
-    this.domain.run(this.master);
+  if (this._cluster.isMaster) {
+    this._domain.run(this.master);
   }
   else {
-    this.domain.run(this.worker);
+    this._domain.run(this.worker);
   }
 };
 
@@ -98,7 +98,7 @@ Startup.prototype._onError = function _onError(err) {
     return this.errorHandler(err);
   }
 
-  this.log.error(this.logPrefix + ' top-level domain error, taking down process: ' +
+  this.log.error(this._logPrefix + ' top-level domain error, taking down process: ' +
     core.breadcrumbs.toString(err));
 
   if (Graceful.instance) {
@@ -106,7 +106,7 @@ Startup.prototype._onError = function _onError(err) {
   }
 
   this.messenger(err, null, function() {
-    _this.process.kill(_this.process.pid, 'SIGTERM');
+    _this._process.kill(_this._process.pid, 'SIGTERM');
   });
 };
 

@@ -69,14 +69,14 @@ describe('Startup', function() {
     it('only calls messenger() and process.kill if nothing else available', function() {
       Graceful.instance = null;
       startup.messenger = sinon.stub().yields();
-      startup.process = {
+      startup._process = {
         kill: sinon.stub()
       };
 
       startup._onError(new Error('test error'));
 
       expect(startup).to.have.deep.property('messenger.callCount', 1);
-      expect(startup).to.have.deep.property('process.kill.callCount', 1);
+      expect(startup).to.have.deep.property('_process.kill.callCount', 1);
     });
 
   });
