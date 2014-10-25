@@ -101,6 +101,7 @@ Startup.prototype._onError = function _onError(err) {
 
   //Don't want the entire domain object to pollute the log entry for this error
   delete err.domain;
+  delete err.domainEmitter;
 
   if (this.errorHandler) {
     return this.errorHandler(err);
