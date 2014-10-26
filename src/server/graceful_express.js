@@ -86,7 +86,8 @@ GracefulExpress.prototype.listen = function listen(app) {
 
 // `middleware` should be added as a global middleware, before any handler that might stop
 // the processing chain. It wires up a domain to capture any errors produced by the rest
-// of that request's handlers.
+// of that request's handlers, keeps track of sockets and responses, and rejects requests
+// if they get here while the server is shutting down.
 GracefulExpress.prototype.middleware = function middleware(req, res, next) {
   var _this = this;
 
@@ -147,15 +148,21 @@ GracefulExpress.prototype.setServer = function setServer(server) {
   }
 };
 
-// Public: Advanced
-// ========
-// If you're doing some very custom things in your app, or just using `socket.io`, you
-// may have need to tell `GracefulExpress` that a given socket is not actually inactive,
-// and therefore shouldn't be destroyed immediately on shutdown. See
-// `test/scenarios/socket.io.js` for a complete example.
+/*
+Public: Advanced
+========
+By default sockets are marked as active when they pass through `middleware` and then
+marked inactive again when the request is finished. This allows us to kill any unused
+keepalive connections as the server is shutting down.
+
+If you're doing some very custom things in your app, or just using `socket.io`, you may
+have need to tell `GracefulExpress` that a given socket is not actually inactive, and
+therefore shouldn't be destroyed immediately on shutdown. See
+`test/scenarios/socket.io.js` for a complete example.
+*/
 
 // `addActiveSocket` adds provided socket to `this._activeSockets`, with no
-// duplicate-checking.s
+// duplicate-checking.
 GracefulExpress.prototype.addActiveSocket = function addActiveSocket(socket) {
   if (!socket || typeof socket !== 'object') {
     throw new Error('socket must be an object');
