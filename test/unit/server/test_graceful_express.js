@@ -69,6 +69,34 @@ describe('GracefulExpress', function() {
     });
   });
 
+  describe('#addActiveSocket', function() {
+    it('throws if socket is null', function() {
+      expect(function() {
+        graceful.addActiveSocket(null);
+      }).to['throw']().that.match(/socket must be an object/);
+    });
+
+    it('throws if socket is a number', function() {
+      expect(function() {
+        graceful.addActiveSocket(3);
+      }).to['throw']().that.match(/socket must be an object/);
+    });
+  });
+
+  describe('#removeActiveSocket', function() {
+    it('throws if socket is not an object', function() {
+      expect(function() {
+        graceful.removeActiveSocket(null);
+      }).to['throw']().that.match(/socket must be an object/);
+    });
+
+    it('#removeActiveSocket throws if socket is a number', function() {
+      expect(function() {
+        graceful.removeActiveSocket(5);
+      }).to['throw']().that.match(/socket must be an object/);
+    });
+  });
+
   describe('#_onError', function() {
     it('closes keepalive connection and calls next', function() {
       var next = sinon.stub();
@@ -127,16 +155,16 @@ describe('GracefulExpress', function() {
       var socket = {
         on: sinon.stub()
       };
-      graceful._addActiveSocket(socket);
-      graceful._addActiveSocket(socket);
+      graceful.addActiveSocket(socket);
+      graceful.addActiveSocket(socket);
 
       expect(graceful).to.have.property('_activeSockets').that.has.length(2);
       expect(socket).to.have.deep.property('on.callCount', 0);
 
-      graceful._removeActiveSocket(socket);
+      graceful.removeActiveSocket(socket);
       expect(graceful).to.have.property('_activeSockets').that.has.length(1);
 
-      graceful._removeActiveSocket(socket);
+      graceful.removeActiveSocket(socket);
       expect(graceful).to.have.property('_activeSockets').that.has.length(0);
     });
   });
@@ -157,8 +185,8 @@ describe('GracefulExpress', function() {
       graceful._addSocket(socket2);
       graceful._addSocket(socket3);
 
-      graceful._addActiveSocket(socket1);
-      graceful._addActiveSocket(socket2);
+      graceful.addActiveSocket(socket1);
+      graceful.addActiveSocket(socket2);
 
       expect(graceful).to.have.property('_activeSockets').that.has.length(2);
       expect(graceful).to.have.property('_sockets').that.has.length(3);

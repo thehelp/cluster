@@ -91,12 +91,12 @@ GracefulExpress.prototype.middleware = function middleware(req, res, next) {
     return next();
   }
 
-  this._addActiveSocket(req.socket);
+  this.addActiveSocket(req.socket);
   this._addResponse(res);
 
   //bind to all three to be completely sure; handler only called once
   var finish = util.once(function() {
-    _this._removeActiveSocket(req.socket);
+    _this.removeActiveSocket(req.socket);
     _this._removeResponse(res);
   });
   res.on('finish', finish);
@@ -144,6 +144,43 @@ GracefulExpress.prototype.setServer = function setServer(server) {
   }
 };
 
+// Public: Advanced
+// ========
+// If you're doing some very custom things in your app, or just using `socket.io`, you
+// may have need to tell `GracefulExpress` that a given socket is not actually inactive,
+// and therefore shouldn't be destroyed immediately on shutdown. See
+// `test/scenarios/socket.io.js` for a complete example.
+
+// `addActiveSocket` adds provided socket to `this._activeSockets`, with no
+// duplicate-checking.s
+GracefulExpress.prototype.addActiveSocket = function addActiveSocket(socket) {
+  if (!socket || typeof socket !== 'object') {
+    throw new Error('socket must be an object');
+  }
+
+  this._activeSockets.push(socket);
+};
+
+// `removeActiveSocket` removes the first instance of provided socket from
+// `this._activeSockets`.
+GracefulExpress.prototype.removeActiveSocket = function removeActiveSocket(socket) {
+  if (!socket || typeof socket !== 'object') {
+    throw new Error('socket must be an object');
+  }
+
+  for (var i = 0, max = this._activeSockets.length; i < max; i += 1) {
+    var element = this._activeSockets[i];
+
+    if (element === socket) {
+      this._activeSockets = this._activeSockets.slice(0, i)
+        .concat(this._activeSockets.slice(i + 1));
+
+      return;
+    }
+  }
+};
+
+
 // Event handlers
 // ========
 
@@ -168,7 +205,8 @@ GracefulExpress.prototype._onError = function _onError(err, req, res, next) {
   next(err);
 };
 
-// `_onClose` runs when the http server's 'close' event fires
+// `_onClose` runs when the http server's 'close' event fires. Stops the socket reaper
+// interval and records receipt.
 GracefulExpress.prototype._onClose = function _onClose() {
   if (this.interval) {
     clearInterval(this.interval);
@@ -266,6 +304,8 @@ GracefulExpress.prototype._removeResponse = function _removeResponse(res) {
 
 // Socket tracking
 // =======
+// The rest of socket tracking, aside from the two public methods to add and remove
+// active sockets.
 
 // `_startSocketReaper` starts an interval to call `_closeInactiveSockets()` repeatedly,
 // attempting to catch anything that slipped through the cracks.
@@ -287,6 +327,7 @@ GracefulExpress.prototype._closeInactiveSockets = function _closeInactiveSockets
     socket.destroySoon();
   }
 };
+
 
 // `_getInactiveSockets` builds a list of inactive sockets by looping through all
 // `this._sockets`, ensuring that they are not present in `this._activeSockets`
@@ -312,26 +353,6 @@ GracefulExpress.prototype._getInactiveSockets = function _getInactiveSockets() {
   }
 
   return inactive;
-};
-
-// `_addActiveSocket` adds provided socket to `this._activeSockets`, with no
-// duplicate-checking
-GracefulExpress.prototype._addActiveSocket = function _addActiveSocket(socket) {
-  this._activeSockets.push(socket);
-};
-
-// `_removeActiveSocket` removes provided socket from `this._activeSockets`
-GracefulExpress.prototype._removeActiveSocket = function _removeActiveSocket(socket) {
-  for (var i = 0, max = this._activeSockets.length; i < max; i += 1) {
-    var element = this._activeSockets[i];
-
-    if (element === socket) {
-      this._activeSockets = this._activeSockets.slice(0, i)
-        .concat(this._activeSockets.slice(i + 1));
-
-      return;
-    }
-  }
 };
 
 // `_addSocket` adds provided socket to `this._sockets` if it isn't already in the list
