@@ -191,7 +191,7 @@ Detailed docs be found at this project's GitHub Pages, thanks to [`groc`](https:
 
 ## A note on domains
 
-[Node.js domains](http://nodejs.org/api/domain.html), while powerful, are still at the 'Unstable' stability level, so this module will be kept in the `0.x.y` version range until that changes.
+[Node.js `domain`] (http://nodejs.org/api/domain.html), while powerful, is still at the 'Unstable' stability level, so this module will be kept in the `0.x.y` version range until that changes.
 
 It should also be noted that not all libraries support domains. [`pg`](https://github.com/brianc/node-postgres) only started supporting domains in `3.x`. Do testing with your libraries of choice to ensure that they play nicely.
 
