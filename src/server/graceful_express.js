@@ -232,12 +232,19 @@ GracefulExpress.prototype._onConnection = function _onClose(socket) {
   this._addSocket(socket);
 };
 
-// `_onShutdown` runs when `Graceful's 'shutdown' event fires. It first http server to
-// stop accepting new connections. Unfortunately, this isn't enough, as it will continue
-// to service existing requests and already-existing keepalive connections.
-// `_closeConnAfterResponses` tells all current requests to close the connection after
-// that request is complete. `_closeInactiveSockets` shuts down all idle keepalive
-// connections.
+/*
+`_onShutdown` runs when `Graceful`'s 'shutdown' event fires. It first tells the `http`
+server to stop accepting new connections. Unfortunately, this isn't enough, as it will
+continue to service existing requests and already-existing keepalive connections.
+
++ `_closeConnAfterResponses` tells all current requests to close the connection after
+that request is complete.
++ `_closeInactiveSockets` shuts down all inactive sockets (usually idle keepalive
+connections).
++ `_startSocketReaper` starts an interval to repeatedly call `_closeInactiveSockets`,
+catching sockets as they become inactive.
+
+*/
 GracefulExpress.prototype._onShutdown = function _onShutdown() {
   this.shuttingDown = true;
 
@@ -325,7 +332,6 @@ GracefulExpress.prototype._startSocketReaper = function _startSocketReaper() {
   this.interval = setInterval(function() {
     _this._closeInactiveSockets();
   }, this.reaperPollInterval);
-  this.interval.unref();
 };
 
 // `_closeInactiveSockets` destroys all inactive sockets
