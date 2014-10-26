@@ -2,7 +2,7 @@
 
 # thehelp-cluster
 
-Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support too!
+Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support and graceful shutdown on SIGTERM too!
 
 
 ## Features
@@ -11,6 +11,8 @@ Don't just let your server crash on an unhandled error, finish everything you we
   + Install [`domain`](http://nodejs.org/api/domain.html)-based capture of unhandled errors for every request, ensuring that the client always gets an error message
   + Shut down [`express`](http://expressjs.com/) servers gracefully: stop accepting new connections, close keepalive connections, and return 503 if any requests leak through
   + `inProcessTest` mode for [`supertest`](https://github.com/tj/supertest)-based in-process endpoint testing
+  + Tested on `express` `3.18.1` and `4.10.0` with `node` `0.10.31`
+  + Tested with `siege`, `ab` and various browsers - no socket hang-ups, no 503s even amidst regular worker crashes
 + `Master` class to:
   + Start up user-provided set of worker processes via [`cluster`](http://nodejs.org/api/domain.html)
   + Detect if worker processes crash too fast, then start replacements up after a delay
@@ -56,7 +58,7 @@ cluster({
 });
 ```
 
-Anything run outside of the `master`/`worker` callbacks you pass to cluster will be run in all of your processes. So a `Graceful` instance is created for each process, and logging is set up too. Since the `master` callback wasn't provided, a basic default is provided: create a `Master` instance, call `start()`.
+Anything run outside of the `master`/`worker` callbacks you pass to cluster will be run in all of your processes. So a `Graceful` instance is created for each process, and logging is set up too. Since the `master` callback wasn't provided, a basic default creates a `Master` instance and calls `start()`.
 
 Now, in the same directory, your `server.js` file:
 
@@ -65,6 +67,11 @@ var express = require('express');
 var app = express();
 
 var cluster = require('thehelp-cluster');
+
+// creates a new Graceful instance if it hasn't been created yet in this process
+// so we can run this file without cluster with full graceful shutdown support
+cluster.Graceful.start();
+
 var gracefulExpress = new cluster.GracefulExpress();
 
 // ...very little should go before gracefulExpress - probably just logging...
@@ -94,7 +101,7 @@ That's it! You've got a cluster of one worker process that will respond to `SIGT
 
 If you have `winston` installed, you'll get a separate log file for each process, like this:
 
-```
+```bash
 logs/master-2014-10-11T01-04:54.602Z-80524.log
 logs/master-2014-10-11T01-04:59.026Z-80528.log
 logs/worker-2014-10-11T01-04:54.771Z-80525.log
@@ -174,6 +181,8 @@ graceful.addCheck(function() {
 
 Take a look at how `Master` and `GracefulExpress` delegate to `Graceful` for more detail. `Graceful` has a number of configuration options as well, like how long to wait for not-yet-ready `addCheck()` functions before shutting down anyway.
 
+_Note: For a complete `socket.io` example, check out `test/scenarios/socket.io.js`._
+
 
 ## Detailed Documentation
 
@@ -185,6 +194,18 @@ Detailed docs be found at this project's GitHub Pages, thanks to [`groc`](https:
 [Node.js domains](http://nodejs.org/api/domain.html), while powerful, are still at the 'Unstable' stability level, so this module will be kept in the `0.x.y` version range until that changes.
 
 It should also be noted that not all libraries support domains. [`pg`](https://github.com/brianc/node-postgres) only started supporting domains in `3.x`. Do testing with your libraries of choice to ensure that they play nicely.
+
+
+## A note on cluster
+
+It turns out that node.js [`cluster`](http://nodejs.org/api/cluster.html) is at an even lower stability than domains: 'Experimental'. Again, we'll need to watch how that API progress and change this project as necessary. But first, let's talk about the pros and cons:
+
+* Pros:
+  * Seamless recovery from an error, even with one worker. The port-sharing functionality of `cluster` holds onto incoming requests, keeps them alive until the new worker is ready to handle them.
+  * Helps better take advantage of one machine's multiple cores
+* Cons:
+  * In node `0.10` and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. [On linux and solaris, you probably shouldn't have more than two or three workers. In `0.12` this will change.](http://strongloop.com/strongblog/whats-new-in-node-js-v0-12-cluster-round-robin-load-balancing/)
+  * Unliked nginx, haproxy and other full-scale load-balancers, you don't have any customizability. It's like to stay this way, even in node `0.12`.
 
 
 ## Contributing changes
