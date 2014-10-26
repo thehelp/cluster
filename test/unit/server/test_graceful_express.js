@@ -24,11 +24,23 @@ describe('GracefulExpress', function() {
       expect(graceful).to.have.property('graceful', null);
       expect(graceful).to.have.property('shuttingDown', false);
 
+      expect(graceful).to.have.property('reaperPollInterval', 500);
+
       expect(graceful).to.have.property('_responses').that.deep.equal([]);
       expect(graceful).to.have.property('_sockets').that.deep.equal([]);
       expect(graceful).to.have.property('_activeSockets').that.deep.equal([]);
 
       expect(graceful).to.have.property('inProcessTest', true);
+    });
+
+    it('throws if provided reaperPollInterval is not a number', function() {
+      /*jshint nonew: false */
+
+      expect(function() {
+        new GracefulExpress({
+          reaperPollInterval: 'seven'
+        });
+      }).to['throw']().that.match(/reaperPollInterval must be a number/);
     });
   });
 

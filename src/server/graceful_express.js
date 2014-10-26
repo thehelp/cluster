@@ -45,6 +45,9 @@ function GracefulExpress(options) {
   var startFile = process.mainModule.filename;
   this._setOption('inProcessTest', options, /mocha$/.test(startFile));
 
+  this.reaperPollInterval = options.reaperPollInterval || 500;
+  util.verifyType('number', this, 'reaperPollInterval');
+
   this.shuttingDown = false;
   this._serverClosed = false;
 
@@ -314,7 +317,7 @@ GracefulExpress.prototype._startSocketReaper = function _startSocketReaper() {
 
   this.interval = setInterval(function() {
     _this._closeInactiveSockets();
-  }, 500);
+  }, this.reaperPollInterval);
   this.interval.unref();
 };
 
