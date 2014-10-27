@@ -1,12 +1,18 @@
-## 0.3.0 (2014-10-11)
+## 0.3.0 (2014-10-26)
 
 * `DomainMiddleware` class renamed to `GracefulExpress`
-* New mode in `GracefulExpress`; in development mode, will not set up a domain for each request, allowing for easier in-process testing with supertest.
-* Remove peer dependencies in favor of real dependencies
+* All public APIs throw on incorrect parameters
+* `Graceful` is resilient to errors thrown by provided 'check' functions or registered 'shutdown' event handlers
+* New mode in `GracefulExpress`: `inProcessTest`. If `true`, will not set up a domain for each request, allowing for easier in-process testing with `supertest`.
+* `GracefulExpress`: tightens up graceful shutdown by:
+  * Closing keepalive connections for all in-progress requests and idle sockets
+  * Starting a socket reaper to continually look for and close idle sockets
+  * Installing a backstop in case issues get through, return `Error` with `statusCode = 503`
 * Logging: reduce verbosity, move to `thehelp-log-shim` to leave logging decisions to the process
-* Upgrade to 1.x series of `thehelp-last-ditch`, which doesn't send SMS by default any longer
+* Upgrade to `1.x` series of `thehelp-last-ditch`, which doesn't send SMS by default any longer
 * Substantial test coverage added
-* Remoe dependency on `lodash`
+* Remove peer dependencies in favor of real dependencies
+* Remove dependency on `lodash`
 
 ## 0.2.4 (2014-07-31)
 
