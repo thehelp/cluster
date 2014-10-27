@@ -186,7 +186,7 @@ _Note: For a complete `socket.io` example, check out `test/scenarios/socket.io.j
 
 ## Detailed Documentation
 
-Detailed docs be found at this project's GitHub Pages, thanks to [`groc`](https://github.com/nevir/groc): <http://thehelp.github.io/thehelp-cluster/src/server/index.html>
+Detailed docs be found at this project's GitHub Pages, thanks to [`groc`](https://github.com/nevir/groc): <http://thehelp.github.io/cluster/src/server/index.html>
 
 
 ## A note on domains
