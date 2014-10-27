@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="en"><head><title>src/server/graceful_express</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/server/graceful_express"><meta name="groc-project-path" content="src/server/graceful_express.js"><meta name="groc-github-url" content="https://github.com/thehelp/cluster"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/thehelp/cluster/blob/master/src/server/graceful_express.js">src/server/graceful_express.js</a></div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="gracefulexpress">GracefulExpress</h1>
+
+<p>Working with the <code>Graceful</code> class, provides full graceful shutdown for an
+<code>express</code>-based server:</p>
+
+<ol>
+<li>Each request is wrapped a domain to ensure that even if an exception is thrown in a
+callback, the client receives a response. If found, your <code>Graceful</code> instance is notified
+of the error, and starts the shutdown process.</li>
+<li>It keeps track of all active requests so we know when it is safe to shut down.</li>
+<li>On shutdown, it calls <code>server.close()</code> to stop accepting new connections, destroys
+all inactive sockets (idle keepalive connections), and sets 'Connection: close' on all
+in-process requests.</li>
+<li>A backstop for all requests that leak through when the server is in shutdown mode:
+calling your Express error handler with an <code>Error</code> with <code>statusCode = 503</code></li>
+</ol></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">domain</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;domain&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">util</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./util&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">http</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;http&#39;</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Graceful</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has some optional parameters:</p>
+
+<ul>
+<li><code>graceful</code> - required to enable full server shutdown scenarios. Can be set either on
+construction or later with <code>listen()</code> or <code>setGraceful()</code>. Default is <code>Graceful.instance</code>,
+so if you've created an instance in this process already, it will be found automatically.</li>
+<li><code>server</code> - the http server, though unlikely to be available on construction of this
+class. More likely you'll use <code>listen()</code> or <code>setServer()</code> later - see below.</li>
+<li><code>inProcessTest</code> - if set to true, will prevent domains from being set up for every
+request, enabling in-process testing of your endpoints, as is often done with <code>supertest</code>.
+Defaults to true if we can detect that this is a <code>mocha</code> run.</li>
+</ul></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">GracefulExpress</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">options</span> <span class="o">=</span> <span class="nx">options</span> <span class="o">||</span> <span class="p">{};</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+
+  <span class="kd">var</span> <span class="nx">startFile</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">mainModule</span><span class="p">.</span><span class="nx">filename</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_setOption</span><span class="p">(</span><span class="s1">&#39;inProcessTest&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">,</span> <span class="sr">/mocha$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">startFile</span><span class="p">));</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">reaperPollInterval</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">reaperPollInterval</span> <span class="o">||</span> <span class="mi">500</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;reaperPollInterval&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_serverClosed</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span> <span class="o">=</span> <span class="p">[];</span>
+
+  <span class="c1">//both here for symmetry; unlikely that both of these are available on construction</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">setGraceful</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">||</span> <span class="nx">Graceful</span><span class="p">.</span><span class="nx">instance</span><span class="p">);</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">setServer</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">server</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">middleware</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">middleware</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">GracefulExpress</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="public-methods">Public Methods</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>listen</code> is a helper method to create an http server, wire it up properly, and start
+it listening on your desired interface. Returns the created server.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">listen</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">listen</span><span class="p">(</span><span class="nx">app</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Need to provide express app as first parameter&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="kd">var</span> <span class="nx">args</span> <span class="o">=</span> <span class="nb">Array</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">slice</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">arguments</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+
+  <span class="kd">var</span> <span class="nx">server</span> <span class="o">=</span> <span class="nx">http</span><span class="p">.</span><span class="nx">createServer</span><span class="p">(</span><span class="nx">app</span><span class="p">);</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">setServer</span><span class="p">(</span><span class="nx">server</span><span class="p">);</span>
+
+  <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">server</span><span class="p">,</span> <span class="nx">args</span><span class="p">);</span>
+
+  <span class="k">return</span> <span class="nx">server</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>middleware</code> should be added as a global middleware, before any handler that might stop
+the processing chain. It wires up a domain to capture any errors produced by the rest
+of that request's handlers, keeps track of sockets and responses, and rejects requests
+if they get here while the server is shutting down.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">middleware</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">middleware</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">inProcessTest</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">next</span><span class="p">();</span>
+  <span class="p">}</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">addActiveSocket</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">socket</span><span class="p">);</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_addResponse</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+
+  <span class="c1">//bind to all three to be completely sure; handler only called once</span>
+  <span class="kd">var</span> <span class="nx">finish</span> <span class="o">=</span> <span class="nx">util</span><span class="p">.</span><span class="nx">once</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">removeActiveSocket</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">socket</span><span class="p">);</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_removeResponse</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+  <span class="p">});</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;finish&#39;</span><span class="p">,</span> <span class="nx">finish</span><span class="p">);</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="nx">finish</span><span class="p">);</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="nx">finish</span><span class="p">);</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_preventKeepAlive</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+
+    <span class="kd">var</span> <span class="nx">err</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;Server is shutting down; rejecting request&#39;</span><span class="p">);</span>
+    <span class="nx">err</span><span class="p">.</span><span class="nx">statusCode</span> <span class="o">=</span> <span class="mi">503</span><span class="p">;</span>
+    <span class="nx">err</span><span class="p">.</span><span class="nx">text</span> <span class="o">=</span> <span class="s1">&#39;Please try again later; this server is shutting down&#39;</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nx">next</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="kd">var</span> <span class="nx">d</span> <span class="o">=</span> <span class="nx">domain</span><span class="p">.</span><span class="nx">create</span><span class="p">();</span>
+  <span class="nx">d</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">req</span><span class="p">);</span>
+  <span class="nx">d</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+  <span class="nx">d</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_onError</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">);</span>
+  <span class="p">});</span>
+
+  <span class="nx">d</span><span class="p">.</span><span class="nx">run</span><span class="p">(</span><span class="nx">next</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setGraceful</code> can be used to provide a <code>Graceful</code> instance after construction.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setGraceful</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">setGraceful</span><span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">=</span> <span class="nx">graceful</span><span class="p">;</span>
+    <span class="nx">util</span><span class="p">.</span><span class="nx">verifyGraceful</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">);</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;shutdown&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">_onShutdown</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">addCheck</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_isReadyForShutdown</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setServer</code> can be used to set <code>this.server</code> if you'd like to create it yourself.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setServer</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">setServer</span><span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="nx">server</span><span class="p">;</span>
+    <span class="nx">util</span><span class="p">.</span><span class="nx">verifyServer</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">);</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">_onClose</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;connection&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">_onConnection</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="public-advanced">Public: Advanced</h1>
+
+<p>By default sockets are marked as active when they pass through <code>middleware</code> and then
+marked inactive again when the request is finished. This allows us to kill any unused
+keepalive connections as the server is shutting down.</p>
+
+<p>If you're doing some very custom things in your app, or just using <code>socket.io</code>, you may
+have need to tell <code>GracefulExpress</code> that a given socket is not actually inactive, and
+therefore shouldn't be destroyed immediately on shutdown. See
+<code>test/scenarios/socket.io.js</code> for a complete example.</p></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>addActiveSocket</code> adds provided socket to <code>this._activeSockets</code>, with no
+duplicate-checking.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">addActiveSocket</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">addActiveSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">socket</span> <span class="o">||</span> <span class="k">typeof</span> <span class="nx">socket</span> <span class="o">!==</span> <span class="s1">&#39;object&#39;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;socket must be an object&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">socket</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>removeActiveSocket</code> removes the first instance of provided socket from
+<code>this._activeSockets</code>.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">removeActiveSocket</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">removeActiveSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">socket</span> <span class="o">||</span> <span class="k">typeof</span> <span class="nx">socket</span> <span class="o">!==</span> <span class="s1">&#39;object&#39;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s1">&#39;socket must be an object&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">element</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nx">element</span> <span class="o">===</span> <span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nx">i</span><span class="p">)</span>
+        <span class="p">.</span><span class="nx">concat</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">));</span>
+
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="event-handlers">Event handlers</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_onError</code> is the method called when a request domain catches an error. It</p>
+
+<ol>
+<li>closes the http keepalive connection</li>
+<li>starts a graceful shutdown if we have a <code>Graceful</code> instance</li>
+<li>and passes the error to the registered express error handler</li>
+</ol></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_onError</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_onError</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_preventKeepAlive</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+
+  <span class="c1">//Don&#39;t want the entire domain object to pollute the log entry for this error</span>
+  <span class="k">delete</span> <span class="nx">err</span><span class="p">.</span><span class="nx">domain</span><span class="p">;</span>
+  <span class="k">delete</span> <span class="nx">err</span><span class="p">.</span><span class="nx">domainEmitter</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">shutdown</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">req</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="nx">next</span><span class="p">(</span><span class="nx">err</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_onClose</code> runs when the http server's 'close' event fires. Stops the socket reaper
+interval and records receipt.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_onClose</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_onClose</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">interval</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">clearInterval</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">interval</span><span class="p">);</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">interval</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_serverClosed</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_onConnection</code> runs when the http server's 'connection' event fires. It's how we can
+be sure that we're capturing all sockets connected to the server.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_onConnection</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_onClose</span><span class="p">(</span><span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_addSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_onShutdown</code> runs when <code>Graceful</code>'s 'shutdown' event fires. It first tells the <code>http</code>
+server to stop accepting new connections. Unfortunately, this isn't enough, as it will
+continue to service existing requests and already-existing keepalive connections.</p>
+
+<ul>
+<li><code>_closeConnAfterResponses</code> tells all current requests to close the connection after
+that request is complete.</li>
+<li><code>_closeInactiveSockets</code> shuts down all inactive sockets (usually idle keepalive
+connections).</li>
+<li><code>_startSocketReaper</code> starts an interval to repeatedly call <code>_closeInactiveSockets</code>,
+catching sockets as they become inactive.</li>
+</ul></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_onShutdown</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_onShutdown</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="k">catch</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{}</span>
+  <span class="p">}</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_closeConnAfterResponses</span><span class="p">();</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_closeInactiveSockets</span><span class="p">();</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_startSocketReaper</span><span class="p">();</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_isReadyForShutdown</code> lets <code>Graceful</code> know when we're ready for <code>process.exit()</code></p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_isReadyForShutdown</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_isReadyForShutdown</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">inProcessTest</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="c1">//if we never got the server, we never registered for the server &#39;close&#39; event</span>
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">length</span> <span class="o">===</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">_serverClosed</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-methods">Helper methods</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_preventKeepAlive</code> tells any connection to close at the end of the current request.
+Unfortunately not enough because some keepalive connections will not make any requests
+as we're shutting down.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_preventKeepAlive</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_preventKeepAlive</span><span class="p">(</span><span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nx">shouldKeepAlive</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_setOption</code> makes dealing with undefined boolean options a bit easier.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_setOption</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_setOption</span><span class="p">(</span><span class="nx">name</span><span class="p">,</span> <span class="nx">options</span><span class="p">,</span> <span class="nx">defaultVal</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">=</span> <span class="nx">options</span><span class="p">[</span><span class="nx">name</span><span class="p">];</span>
+  <span class="k">if</span> <span class="p">(</span><span class="k">typeof</span> <span class="k">this</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">===</span> <span class="s1">&#39;undefined&#39;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">=</span> <span class="nx">defaultVal</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="response-tracking">Response tracking</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_closeConnAfterResponses</code> calls <code>_preventKeepAlive</code> on every active request</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_closeConnAfterResponses</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_closeConnAfterResponses</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">res</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_preventKeepAlive</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_addResponse</code> adds <code>res</code> to the list of in-progress responses</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_addResponse</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_addResponse</span><span class="p">(</span><span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">res</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_removeResponse</code> removes <code>res</code> from the list of in-progress responses</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_removeResponse</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_removeResponse</span><span class="p">(</span><span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">element</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">element</span> <span class="o">===</span> <span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nx">i</span><span class="p">).</span><span class="nx">concat</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_responses</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">));</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="socket-tracking">Socket tracking</h1>
+
+<p>The rest of socket tracking, aside from the two public methods to add and remove
+active sockets.</p></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_startSocketReaper</code> starts an interval to call <code>_closeInactiveSockets()</code> repeatedly,
+attempting to catch anything that slipped through the cracks.</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_startSocketReaper</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_startSocketReaper</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">interval</span> <span class="o">=</span> <span class="nx">setInterval</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_closeInactiveSockets</span><span class="p">();</span>
+  <span class="p">},</span> <span class="k">this</span><span class="p">.</span><span class="nx">reaperPollInterval</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_closeInactiveSockets</code> destroys all inactive sockets</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_closeInactiveSockets</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_closeInactiveSockets</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">inactive</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_getInactiveSockets</span><span class="p">();</span>
+
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="nx">inactive</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">socket</span> <span class="o">=</span> <span class="nx">inactive</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="nx">socket</span><span class="p">.</span><span class="nx">destroySoon</span><span class="p">();</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_getInactiveSockets</code> builds a list of inactive sockets by looping through all
+<code>this._sockets</code>, ensuring that they are not present in <code>this._activeSockets</code></p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_getInactiveSockets</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_getInactiveSockets</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">inactive</span> <span class="o">=</span> <span class="p">[];</span>
+
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">iMax</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">iMax</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">socket</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="kd">var</span> <span class="nx">add</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">jMax</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">j</span> <span class="o">&lt;</span> <span class="nx">jMax</span><span class="p">;</span> <span class="nx">j</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nx">active</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_activeSockets</span><span class="p">[</span><span class="nx">j</span><span class="p">];</span>
+
+      <span class="k">if</span> <span class="p">(</span><span class="nx">socket</span> <span class="o">===</span> <span class="nx">active</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">add</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+        <span class="k">break</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nx">add</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">inactive</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">socket</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="nx">inactive</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_addSocket</code> adds provided socket to <code>this._sockets</code> if it isn't already in the list</p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_addSocket</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_addSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">element</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nx">element</span> <span class="o">===</span> <span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">socket</span><span class="p">);</span>
+
+  <span class="nx">socket</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_removeSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">);</span>
+  <span class="p">});</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_removeSocket</code> removes provided socket from <code>this._sockets</code></p></div></div><div class="code"><div class="wrapper"><span class="nx">GracefulExpress</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_removeSocket</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_removeSocket</span><span class="p">(</span><span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">element</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">element</span> <span class="o">===</span> <span class="nx">socket</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nx">i</span><span class="p">).</span><span class="nx">concat</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_sockets</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">));</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div></div></body></html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><title>src/server/master</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/server/master"><meta name="groc-project-path" content="src/server/master.js"><meta name="groc-github-url" content="https://github.com/thehelp/cluster"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/thehelp/cluster/blob/master/src/server/master.js">src/server/master.js</a></div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h1 id="master">Master</h1>
+
+<p>A simple class to manage a number of worker processes via node's core <code>cluster</code> module.
+Supports graceful shutdown via the <code>SIGTERM</code> signal, as well as detection child
+processes crashing too quickly after launch.</p></div></div><div class="code"><div class="wrapper"><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
+
+<span class="kd">var</span> <span class="nx">cluster</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;cluster&#39;</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">logShim</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;thehelp-log-shim&#39;</span><span class="p">);</span>
+
+<span class="kd">var</span> <span class="nx">Graceful</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./graceful&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">util</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;./util&#39;</span><span class="p">);</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p>The <code>constructor</code> has no required parameters. Optional parameters:</p>
+
+<ul>
+<li><code>graceful</code> - required to enable full process shutdown scenarios. Can be set either on
+construction or later with <code>setGraceful()</code>. Default is <code>Graceful.instance</code>, so if you've
+created an instance in this process already, it will be found automatically.</li>
+<li><code>spinTimeout</code> - how long a process needs to stay up after launch for a crash to be
+considered 'normal.'</li>
+<li><code>delayStart</code> - if a process crashes too fast, how long to wait before starting another</li>
+<li><code>pollInterval</code> - when gracefully shutting down, how frequently to check for zero
+remaining worker processes</li>
+<li><code>killTimeout</code> - how long to wait after sending 'SIGTERM` to follow up it with a 'SIGINT'
+for a more decisive kill</li>
+<li><code>numberWorkers</code> - worker processes to start and maintain. defaults to <code>1</code> or
+<code>process.env.THEHELP_NUMBER_WORDERS</code></li>
+<li><code>log</code> - a logger object: <code>info</code>, <code>warn</code> and <code>error</code> keys with the signature
+<code>function(string)</code>. By default, whatever <code>thehelp-log-shim</code> gives us.</li>
+</ul></div></div><div class="code"><div class="wrapper"><span class="kd">function</span> <span class="nx">Master</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+  <span class="cm">/*jshint maxcomplexity: 12 */</span>
+
+  <span class="nx">options</span> <span class="o">=</span> <span class="nx">options</span> <span class="o">||</span> <span class="p">{};</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_workers</span> <span class="o">=</span> <span class="p">{};</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">spinTimeout</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">spinTimeout</span> <span class="o">||</span> <span class="mi">10</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;spinTimeout&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">delayStart</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">delayStart</span> <span class="o">||</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;delayStart&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">||</span> <span class="mi">500</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;pollInterval&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">killTimeout</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">killTimeout</span> <span class="o">||</span> <span class="mi">7000</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;killTimeout&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">numberWorkers</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberWorkers</span> <span class="o">||</span>
+    <span class="nb">parseInt</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">THEHELP_NUMBER_WORKERS</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span> <span class="o">||</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyType</span><span class="p">(</span><span class="s1">&#39;number&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span> <span class="s1">&#39;numberWorkers&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">setGraceful</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">||</span> <span class="nx">Graceful</span><span class="p">.</span><span class="nx">instance</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">log</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">log</span> <span class="o">||</span> <span class="nx">logShim</span><span class="p">(</span><span class="s1">&#39;thehelp-cluster:master&#39;</span><span class="p">);</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyLog</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">log</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">_cluster</span> <span class="o">||</span> <span class="nx">cluster</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;disconnect&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">_restartWorker</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;More than one Master instance created in this process. &#39;</span> <span class="o">+</span>
+      <span class="s1">&#39;You\&#39;ll have more worker processes than you signed up for!&#39;</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="nx">Master</span><span class="p">.</span><span class="nx">instance</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="nx">Master</span><span class="p">;</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>start</code> gets all the requested worker processes started</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">start</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">start</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Starting master&#39;</span><span class="p">);</span>
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">numberWorkers</span><span class="p">;</span> <span class="nx">i</span> <span class="o">=</span> <span class="nx">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">_startWorker</span><span class="p">();</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>setGraceful</code> is a way to provide the reference after construction. We register with
+<code>Graceful</code> to shutdown when it starts the shutdown process, as well as to let it know
+when workers are still alive. With this in place, you won't need to call <code>shutdown()</code>
+or <code>stop()</code> yourself.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">setGraceful</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">setGraceful</span><span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="nx">graceful</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span> <span class="o">=</span> <span class="nx">graceful</span><span class="p">;</span>
+    <span class="nx">util</span><span class="p">.</span><span class="nx">verifyGraceful</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">);</span>
+
+    <span class="c1">//default timeout for sending SIGINT is longer than timeout for Graceful force kill</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">timeout</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">killTimeout</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">pollInterval</span> <span class="o">*</span> <span class="mi">2</span><span class="p">;</span>
+
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;shutdown&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">_onShutdown</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">graceful</span><span class="p">.</span><span class="nx">addCheck</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_isReadyForShutdown</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>stop</code> kills all worker processes, first using a 'SIGTERM' signal to allow for graceful
+shutdown. If the process isn't dead by <code>this.killTimeout</code> a 'SIGINT' signal is sent.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">stop</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">stop</span><span class="p">(</span><span class="nx">cb</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+  <span class="nx">util</span><span class="p">.</span><span class="nx">verifyCb</span><span class="p">(</span><span class="nx">cb</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;Stopping all workers with SIGTERM...&#39;</span><span class="p">);</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_sendToAll</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
+
+  <span class="kd">var</span> <span class="nx">timeout</span> <span class="o">=</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span> <span class="nx">forceKill</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">timeout</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Shutdown delayed; sending SIGINT to all remaining workers...&#39;</span><span class="p">);</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_sendToAll</span><span class="p">(</span><span class="s1">&#39;SIGINT&#39;</span><span class="p">);</span>
+  <span class="p">},</span> <span class="nx">_this</span><span class="p">.</span><span class="nx">killTimeout</span><span class="p">);</span>
+
+  <span class="kd">var</span> <span class="nx">interval</span> <span class="o">=</span> <span class="nx">setInterval</span><span class="p">(</span><span class="kd">function</span> <span class="nx">checkAndReturn</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">_this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">workers</span><span class="p">).</span><span class="nx">length</span><span class="p">)</span> <span class="p">{</span>
+
+      <span class="nx">clearInterval</span><span class="p">(</span><span class="nx">interval</span><span class="p">);</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">timeout</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">clearTimeout</span><span class="p">(</span><span class="nx">timeout</span><span class="p">);</span>
+      <span class="p">}</span>
+
+      <span class="nx">_this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;All workers gone.&#39;</span><span class="p">);</span>
+      <span class="k">return</span> <span class="nx">cb</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="p">{</span>
+      <span class="nx">_this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;Still some workers alive...&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">},</span> <span class="k">this</span><span class="p">.</span><span class="nx">pollInterval</span><span class="p">);</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><h1 id="helper-functions">Helper functions</h1></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_onShutdown</code> is called when <code>Graceful</code> starts shutting down. It uses <code>stop</code> to kill
+all workers, then sets <code>this._workersActive</code> back to false so <code>_isReadyForShutdown()</code>
+knows that it's safe to take the process down.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_onShutdown</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_onShutdown</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="k">this</span><span class="p">.</span><span class="nx">_workersActive</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">stop</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nx">_this</span><span class="p">.</span><span class="nx">_workersActive</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="p">});</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_isReadyForShutdown</code> is registered as a <code>Graceful</code> 'check' function, letting it know
+when we're safe to shut down the process.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_isReadyForShutdown</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_isReadyForShutdown</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">_workersActive</span><span class="p">;</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_startWorker</code> does a basic <code>cluster.fork()</code>, saving the result and the current time to
+<code>this._workers</code>.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_startWorker</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_startWorker</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">worker</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">fork</span><span class="p">();</span>
+  <span class="kd">var</span> <span class="nx">pid</span> <span class="o">=</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">;</span>
+  <span class="k">this</span><span class="p">.</span><span class="nx">_workers</span><span class="p">[</span><span class="nx">pid</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">pid</span><span class="o">:</span> <span class="nx">pid</span><span class="p">,</span>
+    <span class="nx">id</span><span class="o">:</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
+    <span class="nx">start</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">()</span>
+  <span class="p">};</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_restartWorker</code> first eliminates the dead worker from <code>this._workers</code>, then either
+starts a new worker immediately, or after a delay of <code>this.delayStart</code> if the process
+wasn't alive for longer than <code>this.spinTimeout</code>.</p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_restartWorker</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_restartWorker</span><span class="p">(</span><span class="nx">worker</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">_this</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+
+  <span class="kd">var</span> <span class="nx">pid</span> <span class="o">=</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">;</span>
+  <span class="kd">var</span> <span class="nx">data</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_workers</span><span class="p">[</span><span class="nx">pid</span><span class="p">];</span>
+  <span class="k">delete</span> <span class="k">this</span><span class="p">.</span><span class="nx">_workers</span><span class="p">[</span><span class="nx">pid</span><span class="p">];</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">shuttingDown</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">now</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">();</span>
+    <span class="kd">var</span> <span class="nx">start</span> <span class="o">=</span> <span class="nx">data</span> <span class="o">?</span> <span class="nx">data</span><span class="p">.</span><span class="nx">start</span> <span class="o">:</span> <span class="nx">now</span><span class="p">;</span>
+    <span class="kd">var</span> <span class="nx">delta</span> <span class="o">=</span> <span class="nx">now</span><span class="p">.</span><span class="nx">getTime</span><span class="p">()</span> <span class="o">-</span> <span class="nx">start</span><span class="p">.</span><span class="nx">getTime</span><span class="p">();</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nx">data</span> <span class="o">&amp;&amp;</span> <span class="nx">delta</span> <span class="o">&lt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">spinTimeout</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Worker #&#39;</span> <span class="o">+</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">id</span> <span class="o">+</span> <span class="s1">&#39; (pid: &#39;</span> <span class="o">+</span> <span class="nx">pid</span> <span class="o">+</span>
+        <span class="s1">&#39;) died after less than spin timeout of &#39;</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">spinTimeout</span> <span class="o">+</span> <span class="s1">&#39;ms. Waiting &#39;</span> <span class="o">+</span>
+        <span class="s1">&#39;for &#39;</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nx">delayStart</span> <span class="o">+</span> <span class="s1">&#39;ms before starting replacement&#39;</span><span class="p">);</span>
+
+      <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">_this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Starting delayed replacement for worker #&#39;</span> <span class="o">+</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">id</span><span class="p">);</span>
+        <span class="nx">_this</span><span class="p">.</span><span class="nx">_startWorker</span><span class="p">();</span>
+      <span class="p">},</span> <span class="k">this</span><span class="p">.</span><span class="nx">delayStart</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;Starting replacement for worker #&#39;</span> <span class="o">+</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">id</span><span class="p">);</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">_startWorker</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">workers</span><span class="p">).</span><span class="nx">length</span> <span class="o">===</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">this</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;No workers currently running!&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div><div class="segment"><div class="comments "><div class="wrapper"><p><code>_sendToAll</code> sends the provided signal to each worker still listed in <code>this._workers</code></p></div></div><div class="code"><div class="wrapper"><span class="nx">Master</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">_sendToAll</span> <span class="o">=</span> <span class="kd">function</span> <span class="nx">_sendToAll</span><span class="p">(</span><span class="nx">signal</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">keys</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">workers</span><span class="p">);</span>
+
+  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">max</span> <span class="o">=</span> <span class="nx">keys</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">max</span><span class="p">;</span> <span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">key</span> <span class="o">=</span> <span class="nx">keys</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
+    <span class="kd">var</span> <span class="nx">worker</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">_cluster</span><span class="p">.</span><span class="nx">workers</span><span class="p">[</span><span class="nx">key</span><span class="p">];</span>
+    <span class="kd">var</span> <span class="nx">pid</span> <span class="o">=</span> <span class="nx">worker</span><span class="p">.</span><span class="nx">process</span><span class="p">.</span><span class="nx">pid</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">_workers</span><span class="p">[</span><span class="nx">pid</span><span class="p">])</span> <span class="p">{</span>
+      <span class="nx">process</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="nx">pid</span><span class="p">,</span> <span class="nx">signal</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">};</span></div></div></div></div></body></html>

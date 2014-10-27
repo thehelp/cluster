@@ -1,0 +1,235 @@
+<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><meta name="groc-github-url" content="https://github.com/thehelp/cluster"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/thehelp/cluster/blob/master/README.md">README.md</a></div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><p><a href="https://travis-ci.org/thehelp/cluster"><img src="https://travis-ci.org/thehelp/cluster.svg?branch=master" alt="Build Status" title="" /></a></p>
+
+<h1 id="thehelp-cluster">thehelp-cluster</h1>
+
+<p>Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support and graceful shutdown on SIGTERM too!</p>
+
+<h2 id="features">Features</h2>
+
+<ul>
+<li><code>GracefulExpress</code> class to:
+<ul><li>Install <a href="http://nodejs.org/api/domain.html"><code>domain</code></a>-based capture of unhandled errors for every request, ensuring that the client always gets an error message</li>
+<li>Shut down <a href="http://expressjs.com/"><code>express</code></a> servers gracefully: stop accepting new connections, close keepalive connections, and return 503 if any requests leak through</li>
+<li><code>inProcessTest</code> mode for <a href="https://github.com/tj/supertest"><code>supertest</code></a>-based in-process endpoint testing</li>
+<li>Tested on <code>express</code> <code>3.18.1</code> and <code>4.10.0</code> with <code>node</code> <code>0.10.31</code></li>
+<li>Tested with <code>siege</code>, <code>ab</code> and various browsers - no socket hang-ups, no 503s even amidst regular worker crashes</li></ul></li>
+<li><code>Master</code> class to:
+<ul><li>Start up user-provided set of worker processes via <a href="http://nodejs.org/api/domain.html"><code>cluster</code></a></li>
+<li>Detect if worker processes crash too fast, then start replacements up after a delay</li>
+<li>Shut down process and workers gracefully, only killing worker processes if they take too long</li></ul></li>
+<li><code>Graceful</code> class to:
+<ul><li>Act as the process-level hub for shutdown notifications and shutdown readiness</li>
+<li>Listen for <code>SIGTERM</code> signal, start graceful shutdown process</li>
+<li>Report the shutdown-causing error via <a href="https://github.com/thehelp/last-ditch"><code>thehelp-last-ditch</code></a></li></ul></li>
+<li><code>Startup</code> class to:
+<ul><li>Easily start up a cluster</li>
+<li>Install <code>domain</code> for top-level errors in master and worker processes</li></ul></li>
+<li>Logging options:
+<ul><li>This library can participate in your logging system via <a href="https://github.com/thehelp/log-shim"><code>thehelp-log-shim</code></a></li>
+<li>If you're using <a href="https://github.com/flatiron/winston"><code>winston</code></a>, <code>setupLogs()</code> will quickly set up per-process log files</li></ul></li>
+</ul>
+
+<h2 id="setup">Setup</h2>
+
+<p>First, install the project as a dependency:</p>
+
+<pre><code class="bash">npm install thehelp-project --save-dev
+</code></pre>
+
+<h2 id="usage">Usage</h2>
+
+<p>Okay, say you want to use all of <code>thehelp-cluster</code>. Here's the full treatment - a cluster-based setup, with <code>GracefulExpress</code> installed on your server. First, create your <code>cluster.js</code> file:</p>
+
+<pre><code class="javascript">var cluster = require('thehelp-cluster');
+
+cluster.setupLogs();
+
+// creates a Graceful instance for the process - Master and GracefulExpress need it
+cluster.Graceful.start();
+
+cluster({
+  worker: function() {
+    var server = require('./server');
+    server.start();
+  }
+});
+</code></pre>
+
+<p>Anything run outside of the <code>master</code>/<code>worker</code> callbacks you pass to cluster will be run in all of your processes. So a <code>Graceful</code> instance is created for each process, and logging is set up too. Since the <code>master</code> callback wasn't provided, a basic default creates a <code>Master</code> instance and calls <code>start()</code>.</p>
+
+<p>Now, in the same directory, your <code>server.js</code> file:</p>
+
+<pre><code class="javascript">var express = require('express');
+var app = express();
+
+var cluster = require('thehelp-cluster');
+
+// creates a new Graceful instance if it hasn't been created yet in this process
+// so we can run this file without cluster with full graceful shutdown support
+cluster.Graceful.start();
+
+var gracefulExpress = new cluster.GracefulExpress();
+
+// ...very little should go before gracefulExpress - probably just logging...
+
+app.use(gracefulExpress.middleware);
+
+// ...register your endpoints and other middleware...
+
+app.get('/', function(req, res) {
+  res.send('success!');
+})
+
+return {
+  // we expose the app to allow for supertest-based in-process testing
+  app: app,
+
+  // gracefulExpress needs a references to the http server itself; listen() makes that easy
+  start: function() {
+    gracefulExpress.listen(app, 3000, function() {
+      console.log('Worker listening on port 3000');
+    });
+  }
+};
+</code></pre>
+
+<p>That's it! You've got a cluster of one worker process that will respond to <code>SIGTERM</code> and shut down gracefully. An unhandled error in middleware, or in an endpoint handler, or even in a callback will shut down your server gracefully after piping the error through the installed <a href="http://expressjs.com/guide/error-handling.html">express error handler</a>.</p>
+
+<p>If you have <code>winston</code> installed, you'll get a separate log file for each process, like this:</p>
+
+<pre><code class="bash">logs/master-2014-10-11T01-04:54.602Z-80524.log
+logs/master-2014-10-11T01-04:59.026Z-80528.log
+logs/worker-2014-10-11T01-04:54.771Z-80525.log
+logs/worker-2014-10-11T01-04:55.908Z-80526.log
+logs/worker-2014-10-11T01-04:58.224Z-80527.log
+logs/worker-2014-10-11T01-04:59.200Z-80529.log
+</code></pre>
+
+<p>But we can't forget tests! Here, <code>test/endpoints.js</code> specifies a <a href="http://mochajs.github.io/mocha/"><code>mocha</code></a> test and uses <a href="https://github.com/tj/supertest"><code>supertest</code></a> to load the <code>app</code> from <code>server.js</code> and call it in-process:</p>
+
+<pre><code class="javascript">var supertest = require('supertest');
+var app = require('../server').app;
+
+describe('endpoint test', function() {
+  var request;
+
+  before(function() {
+    request = supertest(app);
+  });
+
+  it('/ should return success', function(done) {
+    request
+      .get('/')
+      .expect('success')
+      .expect(200, done);
+  });
+});
+</code></pre>
+
+<p>Now try throwing an error in an async callback to start testing out the error-catching capabilities of <code>GracefulExpress</code>!</p>
+
+<p><em>Note: <code>GracefulExpress</code> behaves differently when run under <code>mocha</code>. By default, its <code>inProcessTest</code> option is set to <code>true</code> if we can detect that <code>mocha</code> is the main module for the current process. Errors will bubble all the way to <code>mocha</code>'s top-level exception handler and be reported as standard test failures.</em></p>
+
+<h2 id="configuration">Configuration</h2>
+
+<p>You may be wondering about the knobs you can turn in this simple use case. First, two environment variables:</p>
+
+<pre><code class="json">{
+  "THEHELP_NUMBER_WORKERS": "1",
+  "THEHELP_LOGS_DIR": "logs directory; defaults to ./logs/"
+}
+</code></pre>
+
+<h3 id="error-reporting">Error reporting</h3>
+
+<p>Next, by default both <code>Graceful</code> (for exceptions delivered by a <code>shutdown()</code> call) and <code>Startup</code> (if a <code>Graceful</code> instance cannot be found) use <a href="https://github.com/thehelp/last-ditch"><code>thehelp-last-ditch</code></a> to save exceptions. Take a look at the documentation for that - you'll likely want to set the <code>THEHELP_CRASH_LOG</code> environment variable.</p>
+
+<p>You can also provide your own customized <code>LastDitch</code> with SMS/email notifications turned on. Or, you can go further and provide a totally custom <code>messenger</code> callback of the form <code>function(err, options, cb)</code>.</p>
+
+<h3 id="logging">Logging</h3>
+
+<p>You'll also want to look at the documentation for <a href="https://github.com/thehelp/log-shim"><code>thehelp-log-shim</code></a>, which is used for logging. Essentially, this library will look for logging libraries your project already has installed, and will use that.</p>
+
+<h2 id="going-deeper">Going deeper</h2>
+
+<p>In more complex scenarios, say for example you're responding to incoming socket.io messages, you can register for shutdown notifications and delay shutdown like this:</p>
+
+<pre><code>var cluster = require('thehelp-cluster');
+
+// this uses the Graceful instance already in place for this process
+var graceful = cluster.Graceful.instance;
+
+graceful.on('shutdown', function() {
+  // start shutting down all active socket.io connections
+});
+graceful.addCheck(function() {
+  // return true if ready to shut down
+  // called frequently when Graceful wants to shut down
+})
+</code></pre>
+
+<p>Take a look at how <code>Master</code> and <code>GracefulExpress</code> delegate to <code>Graceful</code> for more detail. <code>Graceful</code> has a number of configuration options as well, like how long to wait for not-yet-ready <code>addCheck()</code> functions before shutting down anyway.</p>
+
+<p><em>Note: For a complete <code>socket.io</code> example, check out <code>test/scenarios/socket.io.js</code>.</em></p>
+
+<h2 id="detailed-documentation">Detailed Documentation</h2>
+
+<p>Detailed docs be found at this project's GitHub Pages, thanks to <a href="https://github.com/nevir/groc"><code>groc</code></a>: <a href="http://thehelp.github.io/thehelp-cluster/src/server/index.html">http://thehelp.github.io/thehelp-cluster/src/server/index.html</a></p>
+
+<h2 id="a-note-on-domains">A note on domains</h2>
+
+<p>[Node.js <code>domain</code>] (http://nodejs.org/api/domain.html), while powerful, is still at the 'Unstable' stability level, so this module will be kept in the <code>0.x.y</code> version range until that changes.</p>
+
+<p>It should also be noted that not all libraries support domains. <a href="https://github.com/brianc/node-postgres"><code>pg</code></a> only started supporting domains in <code>3.x</code>. Do testing with your libraries of choice to ensure that they play nicely.</p>
+
+<h2 id="a-note-on-cluster">A note on cluster</h2>
+
+<p>It turns out that node.js <a href="http://nodejs.org/api/cluster.html"><code>cluster</code></a> is at an even lower stability than domains: 'Experimental'. Again, we'll need to watch how that API progress and change this project as necessary. But first, let's talk about the pros and cons:</p>
+
+<ul>
+<li>Pros:
+<ul><li>Seamless recovery from an error, even with one worker. The port-sharing functionality of <code>cluster</code> holds onto incoming requests, keeps them alive until the new worker is ready to handle them.</li>
+<li>Helps better take advantage of one machine's multiple cores</li></ul></li>
+<li>Cons:
+<ul><li>In node <code>0.10</code> and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. <a href="http://strongloop.com/strongblog/whats-new-in-node-js-v0-12-cluster-round-robin-load-balancing/">On linux and solaris, you probably shouldn't have more than two or three workers. In <code>0.12</code> this will change.</a></li>
+<li>Unliked nginx, haproxy and other full-scale load-balancers, you don't have any customizability. It's like to stay this way, even in node <code>0.12</code>.</li></ul></li>
+</ul>
+
+<h2 id="contributing-changes">Contributing changes</h2>
+
+<p>The tests in this project are quite extensive. In particular, take a look at the integration tests and all the files under <code>test/scenarios</code>. The tests create and kill a lot of processes, as you might expect for a library based around graceful shutdown. :0)</p>
+
+<p>When you have some changes ready, please submit a pull request with:</p>
+
+<ul>
+<li>Justification - why is this change worthwhile? Link to issues, use code samples, etc.</li>
+<li>Documentation changes for your code updates. Be sure to check the groc-generated HTML with <code>grunt doc</code></li>
+<li>A description of how you tested the change. Don't forget about the very-useful <code>npm link</code> command :0)</li>
+</ul>
+
+<p>I may ask you to use a <code>git rebase</code> to ensure that your commits are not interleaved with commits already in the history. And of course, make sure <code>grunt</code> completes successfully (take a look at the requirements for <a href="https://github.com/thehelp/project"><code>thehelp-project</code></a>). :0)</p>
+
+<h2 id="license">License</h2>
+
+<p>(The MIT License)</p>
+
+<p>Copyright (c) 2014 Scott Nonnenberg &lt;scott@nonnenberg.com&gt;</p>
+
+<p>Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:</p>
+
+<p>The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.</p>
+
+<p>THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p></div></div></div></div></body></html>

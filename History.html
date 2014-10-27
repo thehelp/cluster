@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><title>History</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="History"><meta name="groc-project-path" content="History.md"><meta name="groc-github-url" content="https://github.com/thehelp/cluster"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/thehelp/cluster/blob/master/History.md">History.md</a></div></div><div id="document"><div class="segment"><div class="comments "><div class="wrapper"><h2 id="030-2014-10-26">0.3.0 (2014-10-26)</h2>
+
+<ul>
+<li><code>DomainMiddleware</code> class renamed to <code>GracefulExpress</code></li>
+<li>All public APIs throw on incorrect parameters</li>
+<li><code>Graceful</code> is resilient to errors thrown by provided 'check' functions or registered 'shutdown' event handlers</li>
+<li>New mode in <code>GracefulExpress</code>: <code>inProcessTest</code>. If <code>true</code>, will not set up a domain for each request, allowing for easier in-process testing with <code>supertest</code>.</li>
+<li><code>GracefulExpress</code>: tightens up graceful shutdown by:
+<ul><li>Closing keepalive connections for all in-progress requests and idle sockets</li>
+<li>Starting a socket reaper to continually look for and close idle sockets</li>
+<li>Installing a backstop in case issues get through, return <code>Error</code> with <code>statusCode = 503</code></li></ul></li>
+<li>Logging: reduce verbosity, move to <code>thehelp-log-shim</code> to leave logging decisions to the process</li>
+<li>Upgrade to <code>1.x</code> series of <code>thehelp-last-ditch</code>, which doesn't send SMS by default any longer</li>
+<li>Substantial test coverage added</li>
+<li>Remove peer dependencies in favor of real dependencies</li>
+<li>Remove dependency on <code>lodash</code></li>
+</ul>
+
+<h2 id="024-2014-07-31">0.2.4 (2014-07-31)</h2>
+
+<ul>
+<li>Update to the more bulletproofed 0.3.x-series of <code>thehelp-last-ditch</code></li>
+<li>Update dev dependencies</li>
+</ul>
+
+<h2 id="023-2014-07-16">0.2.3 (2014-07-16)</h2>
+
+<ul>
+<li><code>DomainMiddleware</code> no longer warns on 'unfinished' responses; seems that this event isn't fully reliable in the face of all server topologies. We bind to 'finish', 'close' and 'end' events on the <code>response</code> object, but the handler is wrapped with <code>_.once()</code>.</li>
+</ul>
+
+<h2 id="022-2014-07-14">0.2.2 (2014-07-14)</h2>
+
+<ul>
+<li><code>Startup</code> now allows configuration of logs directory - via <code>options.logs</code> on construction or the LOGS environment variable. Defaults to './logs/'</li>
+</ul>
+
+<h2 id="021-2014-05-27">0.2.1 (2014-05-27)</h2>
+
+<ul>
+<li>Pare down what's in the npm package</li>
+</ul>
+
+<h2 id="020-2014-05-25">0.2.0 (2014-05-25)</h2>
+
+<p>Breaking:</p>
+
+<ul>
+<li><code>GracefulWorker</code> was renamed to <code>Graceful</code>, and now allows others to register for shutdown notification, doesn't call <code>server.close()</code> directly, and no longer acts as middleware.</li>
+<li><code>Domain-Middleware</code> now needs a <code>server</code> reference, calls <code>server.close()</code>, registers for <code>Graceful</code> shutdown notification, then sends 'connection:close' for all subsequent requests itself</li>
+<li><code>Master</code> no longer handles shutdown itself, instead delegating to <code>Graceful</code> - if creating manually, be sure to supply a <code>Graceful</code> instance</li>
+<li><code>Startup</code> now only calls <code>messenger</code> if no <code>Graceful</code> instance can be found</li>
+</ul>
+
+<p>Other updates:</p>
+
+<ul>
+<li>Update dev dependencies</li>
+</ul>
+
+<h2 id="011-2014-05-01">0.1.1 (2014-05-01)</h2>
+
+<ul>
+<li><code>Master.stop()</code> now takes a callback</li>
+<li><code>DomainMiddlware</code> now logs a warning instead of an error when it gets a <code>res.on('close')</code> event</li>
+<li>Dev dependency upgrade: supertest</li>
+</ul>
+
+<h2 id="010-2014-04-28">0.1.0 (2014-04-28)</h2>
+
+<ul>
+<li>Easy startup of cluster application with root <code>startup</code> method</li>
+<li>Fully functional <code>Master</code>, <code>Startup</code>, <code>GracefulWorker</code> and <code>DomainMiddleware</code> classes</li>
+<li>Graceful shutdown of both master and worker processes with proper exit codes, both for top-level and request-specific errors</li>
+</ul></div></div></div></div></body></html>
