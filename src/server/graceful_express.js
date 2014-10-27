@@ -226,9 +226,16 @@ GracefulExpress.prototype._onClose = function _onClose() {
   this._serverClosed = true;
 };
 
-// `_onConnection` runs when the http server's 'connection' event fires. It's how we can
-// be sure that we're capturing all sockets connected to the server.
-GracefulExpress.prototype._onConnection = function _onClose(socket) {
+/*
+`_onConnection` runs when the http server's 'connection' event fires. It's how we can
+be sure that we're capturing all sockets connected to the server.
+
+_Note: A big reason for going with this approach is Google Chrome's interesting behavior:
+without the dev tools open, if you just request one URL (with no assets) from a server,
+you end up with a zombie socket connected to the server which never hits any middleware.
+This will prevent the server's close event from firing._
+*/
+GracefulExpress.prototype._onConnection = function _onConnection(socket) {
   this._addSocket(socket);
 };
 
