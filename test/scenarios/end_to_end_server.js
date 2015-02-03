@@ -19,7 +19,12 @@ var gracefulExpress = new thCluster.GracefulExpress();
 
 var app = express();
 
-app.use(morgan('combined', {
+var format = ':remote-addr - - [:date] ' +
+  '":method :url HTTP/:http-version"' +
+  ' :status :res[content-length] ":referrer" ":user-agent"' +
+  ' - :response-time ms';
+
+app.use(morgan(format, {
   stream: {
     write: function(text) {
       logger.info(text.replace(/\n$/, ''));
