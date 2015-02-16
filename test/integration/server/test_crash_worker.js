@@ -37,7 +37,7 @@ describe('top-level crash in worker', function() {
 
     setTimeout(function() {
       child.kill();
-    }, 2000);
+    }, 4000);
   });
 });
 
