@@ -87,7 +87,7 @@ describe('end-to-end', function() {
   });
 
   it('async error only takes down process after long task is complete', function(done) {
-    this.timeout(5000);
+    this.timeout(10000);
 
     done = serverUtil.once(done);
     var delayComplete = false;
