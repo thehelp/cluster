@@ -40,10 +40,10 @@ describe('winston creates expected log files', function() {
 
     child.on('close', function() {
 
-      // let's also validate that the master process logfile got everything
+      // let's also validate that the master process was logging
       var contents = fs.readFileSync(path.join(util.logsDir, logFiles[0]));
       contents = contents.toString();
-      expect(contents).to.match(/Master about to exit with code 0/);
+      expect(contents).to.match(/Master calling all provided pre-exit check functions.../);
 
       done();
     });
