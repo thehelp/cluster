@@ -270,16 +270,7 @@ describe('Graceful', function() {
   });
 
   describe('#_finalLog', function() {
-    it('calls _die when log calls callback', function(done) {
-      graceful.log = {
-        info: sinon.stub().yields()
-      };
-      graceful._die = done;
-
-      graceful._finalLog('info', 'log string');
-    });
-
-    it('calls _die if log never calls callback', function(done) {
+    it('calls _die', function(done) {
       graceful.log = {
         info: sinon.stub()
       };

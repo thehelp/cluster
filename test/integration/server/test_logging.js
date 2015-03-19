@@ -130,14 +130,4 @@ describe('winston creates expected log files', function() {
     });
   });
 
-  it('waited until the final log entry made it into the file', function() {
-    if (!winston) {
-      return;
-    }
-
-    var contents = fs.readFileSync(path.join(util.logsDir, logFiles[1]));
-    contents = contents.toString();
-    expect(contents).to.match(/Worker #1 about to exit with code 1/);
-  });
-
 });

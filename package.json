@@ -18,7 +18,7 @@
     "supertest": "0.15.0",
     "thehelp-project": "3.4.1",
     "thehelp-test": "3.3.0",
-    "winston": "0.8.3"
+    "winston": "0.9.0"
   },
 
   "scripts": {

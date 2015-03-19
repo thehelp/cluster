@@ -223,26 +223,12 @@ Graceful.prototype._clearTimers = function _clearTimers() {
 };
 
 /*
-`_finalLog` makes a final log entry then takes down the process when that log call is
-complete.
-
-_Why so complex? To ensure that any `winston` file transports are properly flushed. You'll
-note without this, if `_die()` is called directly in `_exit()` above, the main integration
-tests will result in log files without the final 'about to exit with code X' entries._
+`_finalLog` makes a final log entry then waits until the next turn of the event loop to
+call process exit, attempting to give the filesystem enough time to flush to disk.
 */
 Graceful.prototype._finalLog = function _finalLog(type, message) {
-  var _this = this;
-
-  var die = localUtil.once(function() {
-    _this._die();
-  });
-
-  this.log[type](message, function(err, level, msg, meta) {
-    /*jshint unused: false */
-    die();
-  });
-
-  setTimeout(die, 250);
+  this.log[type](message);
+  setTimeout(this._die.bind(this), 0);
 };
 
 // `_die` calls `process._exit()` with the right error code based on `this.error` (set in
