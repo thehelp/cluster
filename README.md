@@ -11,7 +11,7 @@ Don't just let your server crash on an unhandled error, finish everything you we
   + Install [`domain`](http://nodejs.org/api/domain.html)-based capture of unhandled errors for every request, ensuring that the client always gets an error message
   + Shut down [`express`](http://expressjs.com/) servers gracefully: stop accepting new connections, close keepalive connections, and return 503 if any requests leak through
   + `inProcessTest` mode for [`supertest`](https://github.com/tj/supertest)-based in-process endpoint testing
-  + Tested on `express` `3.18.1` and `4.10.0` with `node` `0.10.31`
+  + Tested on `express` `3.x` and `4.x` and with `node` `0.10.30-36` and `iojs` `1.4.3`, `1.5.1` and `1.6.0` (note: [tests no longer run on node 0.10 or below](https://github.com/thehelp/cluster/commit/9991818401f1d4f1867b54a107dcb3859240e20e)]
   + Tested with `siege`, `ab` and various browsers - no socket hang-ups, no 503s even amidst regular worker crashes
 + `Master` class to:
   + Start up user-provided set of worker processes via [`cluster`](http://nodejs.org/api/domain.html)
