@@ -21,6 +21,8 @@ describe('winston creates expected log files', function() {
   var agent, child, logFiles;
 
   before(function(done) {
+    this.timeout(5000);
+
     agent = supertest.agent('http://localhost:3000');
 
     util.emptyDir(util.logsDir, function(err) {
@@ -31,7 +33,7 @@ describe('winston creates expected log files', function() {
       child = util.startProcess(
         path.join(__dirname, '../../scenarios/end_to_end_cluster.js'));
 
-      setTimeout(done, 1000);
+      setTimeout(done, 2000);
     });
   });
 
@@ -61,13 +63,13 @@ describe('winston creates expected log files', function() {
         throw err;
       }
 
+      files = files.sort();
+      logFiles = files;
+
       expect(files).to.have.length(2);
 
-      files = files.sort();
       expect(files).to.have.deep.property('0').that.match(/master/);
       expect(files).to.have.deep.property('1').that.match(/worker/);
-
-      logFiles = files;
 
       done();
     });
