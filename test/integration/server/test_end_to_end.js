@@ -13,7 +13,7 @@ var serverUtil = require('../../../src/server/util');
 var logShim = require('thehelp-log-shim');
 var logger = logShim('end-to-end:test');
 
-var WORKER_STARTUP = 750; // milliseconds
+var WORKER_STARTUP = 1500; // milliseconds
 
 
 describe('end-to-end', function() {

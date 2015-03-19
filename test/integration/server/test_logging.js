@@ -8,7 +8,7 @@ var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
 
-var WORKER_STARTUP = 750; // milliseconds
+var WORKER_STARTUP = 1500; // milliseconds
 
 var winston;
 
