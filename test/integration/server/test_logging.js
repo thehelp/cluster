@@ -8,6 +8,8 @@ var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
 
+var WORKER_STARTUP = 750; // milliseconds
+
 var winston;
 
 try {
@@ -86,7 +88,13 @@ describe('winston creates expected log files', function() {
       .expect('Content-Type', /text\/plain/)
       .expect('X-Worker', '1')
       .expect(/^error\!/)
-      .expect(500, done);
+      .expect(500, function(err) {
+        if (err) {
+          throw err;
+        }
+
+        setTimeout(done, WORKER_STARTUP);
+      });
   });
 
   it('starts up another node', function(done) {

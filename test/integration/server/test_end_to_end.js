@@ -2,24 +2,26 @@
 'use strict';
 
 var path = require('path');
+var http = require('http');
 
 var core = require('thehelp-core');
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
-var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
 var logShim = require('thehelp-log-shim');
 var logger = logShim('end-to-end:test');
 
+var WORKER_STARTUP = 750; // milliseconds
+
+
 describe('end-to-end', function() {
   var agent, child, pool;
 
   before(function(done) {
-    // https://github.com/node-modules/agentkeepalive#new-agentoptions
-    pool = new Pool({
-      keepAliveMsecs: 10000
+    pool = new http.Agent({
+      keepAlive: true
     });
 
     agent = supertest.agent('http://localhost:3000');
@@ -62,6 +64,17 @@ describe('end-to-end', function() {
       .expect(500, done);
   });
 
+  it('server does not accept a new connection after crash', function(done) {
+    this.timeout(5000);
+
+    agent
+      .get('/')
+      .expect(200, function(err) {
+        expect(err).to.have.property('code', 'ECONNREFUSED');
+        setTimeout(done, WORKER_STARTUP);
+      });
+  });
+
   it('starts up another node', function(done) {
     this.timeout(5000);
 
@@ -79,15 +92,18 @@ describe('end-to-end', function() {
     done = serverUtil.once(done);
     var delayComplete = false;
 
-    var second = new Pool({
-      keepAliveMsecs: 10000
+    var secondPool = new http.Agent({
+      keepAlive: true
+    });
+    var thirdPool = new http.Agent({
+      keepAlive: true
     });
 
     // long-running task still gets connection:close, even though error comes after
     // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/longDelay')
-      .agent(second)
+      .agent(secondPool)
       .expect('X-Worker', '2')
       .expect('Connection', 'close') // relies on patchResMethods = true
       .expect(200, function(err) {
@@ -96,13 +112,17 @@ describe('end-to-end', function() {
           logger.error(core.breadcrumbs.toString(err));
           return done(err);
         }
+
+        expect(delayComplete).to.equal(true);
+
+        setTimeout(done, WORKER_STARTUP);
       });
 
     // long-running task still gets connection:close, even though error comes after
     // relies on GracefulExpress._closeConnAfterResponses
     agent
       .get('/delay')
-      .agent(second)
+      .agent(secondPool)
       .expect('X-Worker', '2')
       .expect('Connection', 'close') // relies on patchResMethods = true
       .expect(200, function(err) {
@@ -114,67 +134,44 @@ describe('end-to-end', function() {
 
         delayComplete = true;
 
-        // we use the same pool as
+        // we use the same pool as above
         setImmediate(function() {
           agent
             .get('/')
-            .agent(second)
+            .agent(secondPool)
             .expect('X-Worker', '3')
             .expect('Connection', 'keep-alive')
             .expect(200, function(err) {
-              if (err) {
-                err.message += ' - / request, on second pool';
-                logger.error(core.breadcrumbs.toString(err));
-                return done(err);
-              }
+              expect(err).to.have.property('code', 'ECONNREFUSED');
             });
         });
       });
 
     agent
       .get('/error')
+      .agent(thirdPool)
       .expect('Connection', 'close')
       .expect('X-Worker', '2')
       .expect(500, function(err) {
         if (err) {
           err.message += ' - /error request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
         }
 
-        expect(delayComplete).to.equal(false);
-
-        // this request sneaks in on an idle keepalive connection
+        // we don't want this request to sneak in on an idle keepalive connection
         // this relies on GracefulExpress._closeInactiveSockets
         agent
           .get('/')
           .agent(pool)
-          .expect('X-Worker', '3')
-          .expect('Connection', 'keep-alive')
           .expect(200, function(err) {
-            if (err) {
-              err.message += ' - / keepalive request to worker 3';
-              logger.error(core.breadcrumbs.toString(err));
-              return done(err);
-            }
-
-            expect(delayComplete).to.equal(true);
+            expect(err).to.have.property('code', 'ECONNREFUSED');
           });
 
-        // this is a new client, should definitely hit the new worker
+        // this is a new socket, request should definitely fail
         agent
           .get('/')
-          .expect('X-Worker', '3')
           .expect(200, function(err) {
-            if (err) {
-              err.message += ' - / new request on worker 3';
-              logger.error(core.breadcrumbs.toString(err));
-              return done(err);
-            }
-
-            expect(delayComplete).to.equal(true);
-
-            done();
+            expect(err).to.have.property('code', 'ECONNREFUSED');
           });
       });
   });
@@ -196,7 +193,7 @@ describe('end-to-end', function() {
           return done(err);
         }
 
-        done();
+        setTimeout(done, WORKER_STARTUP);
       });
 
     agent
@@ -229,7 +226,7 @@ describe('end-to-end', function() {
           return done(err);
         }
 
-        done();
+        setTimeout(done, WORKER_STARTUP);
       });
 
     agent
@@ -250,7 +247,7 @@ describe('end-to-end', function() {
 
     done = serverUtil.once(done);
 
-    // results in a keepalive because headers are writen before the error happens
+    // results in a keepalive because headers are written before the error happens
     // then we don't make another request on the socket, so it sticks around
     agent
       .get('/writeHeadAndDelay')

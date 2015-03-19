@@ -2,12 +2,12 @@
 'use strict';
 
 var path = require('path');
+var http = require('http');
 
 var core = require('thehelp-core');
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
-var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
 var logShim = require('thehelp-log-shim');
@@ -18,9 +18,8 @@ describe('socket reaper not started', function() {
   var agent, child, pool;
 
   before(function(done) {
-    // https://github.com/node-modules/agentkeepalive#new-agentoptions
-    pool = new Pool({
-      keepAliveMsecs: 10000
+    pool = new http.Agent({
+      keepAlive: true
     });
 
     agent = supertest.agent('http://localhost:3000');
@@ -81,6 +80,17 @@ describe('socket reaper not started', function() {
       });
   });
 
+  it('server does not accept a new connection after crash', function(done) {
+    this.timeout(5000);
+
+    agent
+      .get('/')
+      .expect(200, function(err) {
+        expect(err).to.have.property('code', 'ECONNREFUSED');
+        setTimeout(done, 3000);
+      });
+  });
+
   it('second worker starts up, starts keepalive connection', function(done) {
     this.timeout(10000);
 
@@ -99,7 +109,7 @@ describe('socket reaper not started', function() {
     //   keepalive connection is just hanging around...
 
     var orig = done;
-    done = serverUtil.once(function() {
+    done = function() {
       child.on('close', function() {
         expect(child.result).to.match(/Killing process now/);
 
@@ -107,7 +117,7 @@ describe('socket reaper not started', function() {
       });
 
       child.kill();
-    });
+    };
 
     agent
       .get('/writeHeadAndDelay')
@@ -132,7 +142,6 @@ describe('socket reaper not started', function() {
         if (err) {
           err.message += ' - /error request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
         }
       });
   });

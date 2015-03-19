@@ -2,12 +2,12 @@
 'use strict';
 
 var path = require('path');
+var http = require('http');
 
 var core = require('thehelp-core');
 var supertest = require('supertest');
 var expect = require('thehelp-test').expect;
 var util = require('./util');
-var Pool = require('agentkeepalive');
 var serverUtil = require('../../../src/server/util');
 
 var logShim = require('thehelp-log-shim');
@@ -18,9 +18,8 @@ describe('keepalive sockets not closed', function() {
   var agent, child, pool;
 
   before(function(done) {
-    // https://github.com/node-modules/agentkeepalive#new-agentoptions
-    pool = new Pool({
-      keepAliveMsecs: 10000
+    pool = new http.Agent({
+      keepAlive: true
     });
 
     agent = supertest.agent('http://localhost:3000');
@@ -43,9 +42,6 @@ describe('keepalive sockets not closed', function() {
   it('socket not closed, so keepalive gets 503', function(done) {
     this.timeout(5000);
 
-    done = serverUtil.once(done);
-    var delayComplete = false;
-
     // long-running task still gets connection:close, even though error comes after
     agent
       .get('/delay')
@@ -55,10 +51,9 @@ describe('keepalive sockets not closed', function() {
         if (err) {
           err.message += ' - /delay request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
         }
 
-        delayComplete = true;
+        done();
       });
 
     agent
@@ -69,10 +64,8 @@ describe('keepalive sockets not closed', function() {
         if (err) {
           err.message += ' - /error request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
+          return;
         }
-
-        expect(delayComplete).to.equal(false);
 
         // this request sneaks in on a keepalive connection
         agent
@@ -85,17 +78,23 @@ describe('keepalive sockets not closed', function() {
             if (err) {
               err.message += ' - / keepalive request to worker 3';
               logger.error(core.breadcrumbs.toString(err));
-              return done(err);
             }
-
-            done();
           });
       });
   });
 
-  it('second worker starts up, starts keepalive connection', function(done) {
+  it('server does not accept a new connection after crash', function(done) {
     this.timeout(5000);
 
+    agent
+      .get('/')
+      .expect(200, function(err) {
+        expect(err).to.have.property('code', 'ECONNREFUSED');
+        setTimeout(done, 3000);
+      });
+  });
+
+  it('second worker starts up, starts keepalive connection', function(done) {
     agent
       .get('/')
       .agent(pool)
@@ -130,7 +129,7 @@ describe('keepalive sockets not closed', function() {
         if (err) {
           err.message += ' - /delay request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
+          done(err);
         }
 
         done();
@@ -144,7 +143,6 @@ describe('keepalive sockets not closed', function() {
         if (err) {
           err.message += ' - /error request';
           logger.error(core.breadcrumbs.toString(err));
-          return done(err);
         }
       });
   });

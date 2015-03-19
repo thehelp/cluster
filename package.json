@@ -9,7 +9,6 @@
     "thehelp-log-shim": "1.x"
   },
   "devDependencies": {
-    "agentkeepalive": "0.2.3",
     "express": "4.12.3",
     "grunt": "0.4.5",
     "morgan": "1.5.2",
