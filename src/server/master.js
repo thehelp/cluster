@@ -194,7 +194,7 @@ Master.prototype._restartWorker = function _restartWorker(worker) {
       this._startWorker();
     }
 
-    if (Object.keys(this._cluster.workers).length === 0) {
+    if (Object.keys(this._workers).length === 0) {
       this.log.error('No workers currently running!');
     }
   }
