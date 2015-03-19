@@ -9,29 +9,21 @@
     "thehelp-log-shim": "1.x"
   },
   "devDependencies": {
-    "agentkeepalive": "0.2.2",
-    "blanket": "1.1.6",
-    "express": "4.10.0",
+    "agentkeepalive": "0.2.3",
+    "express": "4.12.3",
     "grunt": "0.4.5",
-    "morgan": "1.3.2",
-    "rimraf": "2.2.8",
-    "socket.io": "1.1.0",
-    "socket.io-client": "1.1.0",
-    "supertest": "0.14.0",
-    "thehelp-project": "3.3.1",
+    "morgan": "1.5.2",
+    "rimraf": "2.3.2",
+    "socket.io": "1.3.5",
+    "socket.io-client": "1.3.5",
+    "supertest": "0.15.0",
+    "thehelp-project": "3.4.1",
     "thehelp-test": "3.3.0",
-    "winston": "0.8.1"
+    "winston": "0.8.3"
   },
 
   "scripts": {
     "test": "grunt"
-  },
-
-  "config": {
-    "blanket": {
-      "data-cover-only": "src",
-      "data-cover-never": "['lib/','node_modules/','test/','src/client']"
-    }
   },
 
   "description": "Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support and graceful shutdown on SIGTERM too!",
