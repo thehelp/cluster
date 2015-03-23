@@ -1,3 +1,11 @@
+## 0.3.1 (2015-03-22)
+
+* Small tweak to `Graceful._finalLog` - instead of relying on `winston` callback or a `setTimeout(fn, 250)` to ensure that the final log entry hits the disk, we just do a `setTimeout(fn, 0)` to give it a chance. And the tests no longer check for that last entry, because it's not reliable. May introduce a feature in the future where the process is allowed to die naturally, since we've already stopped the server, etc. This would require that we and the overall client program `unref()` all timers.
+* Small tweak to `Master._restartWorker` - it seems that sometimes we would get a `disconnect` event before the worker had been removed from `cluster.workers` so we sometimes didn't log this very important error 'No workers currently running!' Now we check our own list at `this._workers`.
+* Overhaul of tests due to [this breaking change in node 0.12/iojs](https://github.com/joyent/node/issues/10427). Tests were previously assuming that a request immediately after worker crash would hit the next worker; now the connection is refused until the new worker is up.
+* Travis now runs on node 0.12 and iojs 1.4/1.5/1.6 only. Didn't feel like making the tests work on 0.10 as well as the new systems.
+* Update dev dependencies
+
 ## 0.3.0 (2014-10-26)
 
 * `DomainMiddleware` class renamed to `GracefulExpress`
