@@ -38,9 +38,24 @@ npm install thehelp-project --save-dev
 ```
 
 
-## Usage
+## Usage: Single-process
 
-Okay, say you want to use all of `thehelp-cluster`. Here's the full treatment - a cluster-based setup, with `GracefulExpress` installed on your server. First, create your `cluster.js` file:
+Even a single process could benefit from graceful shutdown, and it's really easy to set that up:
+
+```
+var cluster = require('thehelp-cluster');
+cluster.Graceful.start();
+
+process.on('uncaughtException', function(err) {
+  // Graceful uses thehelp-last-ditch to capture error information, then shuts down
+  cluster.Graceful.instance.shutdown(err);
+});
+```
+
+
+# Usage: Clustered
+
+Okay, now say you want to use all of `thehelp-cluster`. Here's the full treatment - a cluster-based setup, with `GracefulExpress` installed on your server. First, create your `cluster.js` file:
 
 ```javascript
 var cluster = require('thehelp-cluster');
@@ -157,7 +172,7 @@ You can also provide your own customized `LastDitch` with SMS/email notification
 
 ### Logging
 
-You'll also want to look at the documentation for [`thehelp-log-shim`](https://github.com/thehelp/log-shim), which is used for logging. Essentially, this library will look for logging libraries your project already has installed, and will use that.
+You'll also want to look at the documentation for [`thehelp-log-shim`](https://github.com/thehelp/log-shim), which is used for logging. Essentially, this library will look for logging libraries your project already has installed, and will use that. If you don't like this, you can turn it off!
 
 
 ## Going deeper
@@ -201,11 +216,11 @@ It should also be noted that not all libraries support domains. [`pg`](https://g
 It turns out that node.js [`cluster`](http://nodejs.org/api/cluster.html) is at an even lower stability than domains: 'Experimental'. Again, we'll need to watch how that API progress and change this project as necessary. But first, let's talk about the pros and cons:
 
 * Pros:
-  * Seamless recovery from an error, even with one worker. The port-sharing functionality of `cluster` holds onto incoming requests, keeps them alive until the new worker is ready to handle them.
+  * Seamless recovery from an errors, as long as at least one worker is always alive.
   * Helps better take advantage of one machine's multiple cores
 * Cons:
-  * In node `0.10` and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. [On linux and solaris, you probably shouldn't have more than two or three workers. In `0.12` this will change.](http://strongloop.com/strongblog/whats-new-in-node-js-v0-12-cluster-round-robin-load-balancing/)
-  * Unliked nginx, haproxy and other full-scale load-balancers, you don't have any customizability. It's like to stay this way, even in node `0.12`.
+  * In node `0.10` and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. [On linux and solaris, you probably shouldn't have more than two or three workers. In `0.12` this changed to round-robin](http://strongloop.com/strongblog/whats-new-in-node-js-v0-12-cluster-round-robin-load-balancing/)
+  * Unliked nginx, haproxy and other full-scale load-balancers, you don't have any customizability.
 
 
 ## Contributing changes
