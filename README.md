@@ -23,6 +23,7 @@ Don't just let your server crash on an unhandled error, finish everything you we
   + Report the shutdown-causing error via [`thehelp-last-ditch`](https://github.com/thehelp/last-ditch)
 + `Startup` class to:
   + Easily start up a cluster
+  + On launch of processes, increment [`statsd`](https://github.com/etsy/statsd) counters for '[process.env.THEHELP_APP_NAME].launches.master/worker' Why? To catch frequent restarts if OS is killing your process, for example due to low memory)
   + Install `domain` for top-level errors in master and worker processes
 + Logging options:
   + This library can participate in your logging system via [`thehelp-log-shim`](https://github.com/thehelp/log-shim)

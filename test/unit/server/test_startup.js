@@ -105,6 +105,45 @@ describe('Startup', function() {
     });
   });
 
+  describe('#start', function() {
+    beforeEach(function() {
+      startup._stats = {
+        increment: sinon.stub()
+      };
+      startup._cluster = {
+        isMaster: true
+      };
+      startup._domain = {
+        run: sinon.stub().yields()
+      };
+    });
+
+    it('calls domain.run and increments launches.master', function() {
+      startup.master = sinon.stub();
+
+      startup.start();
+
+      expect(startup).to.have.deep.property('_domain.run.callCount', 1);
+      expect(startup).to.have.deep.property('_stats.increment.callCount', 1);
+      expect(startup).to.have.deep.property('master.callCount', 1);
+
+      expect(startup._stats.increment.calledWith('launches.master')).to.equal(true);
+    });
+
+    it('calls domain.run and increments launches.worker', function() {
+      startup._cluster.isMaster = false;
+
+      startup.worker = sinon.stub();
+      startup.start();
+
+      expect(startup).to.have.deep.property('_domain.run.callCount', 1);
+      expect(startup).to.have.deep.property('_stats.increment.callCount', 1);
+      expect(startup).to.have.deep.property('worker.callCount', 1);
+
+      expect(startup._stats.increment.calledWith('launches.worker')).to.equal(true);
+    });
+  });
+
   describe('#_onError', function() {
     it('calls Graceful.instance.shutdown() if available', function() {
       startup.graceful = {

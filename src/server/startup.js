@@ -7,6 +7,8 @@
 var cluster = require('cluster');
 var domain = require('domain');
 
+var StatsD = require('node-statsd');
+
 var core = require('thehelp-core');
 var logShim = require('thehelp-log-shim');
 
@@ -42,6 +44,10 @@ function Startup(options) {
   }
   util.verifyType('function', this, 'worker');
 
+  this._stats = options.stats || new StatsD({
+    prefix: process.env.THEHELP_APP_NAME + '.'
+  });
+
   this.log = options.log || logShim('thehelp-cluster:startup');
   util.verifyLog(this.log);
 
@@ -75,9 +81,11 @@ module.exports = Startup;
 // `master` or `worker` in the contxt of a top-level domain.
 Startup.prototype.start = function start() {
   if (this._cluster.isMaster) {
+    this._stats.increment('launches.master');
     this._domain.run(this.master);
   }
   else {
+    this._stats.increment('launches.worker');
     this._domain.run(this.worker);
   }
 };
