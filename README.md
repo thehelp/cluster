@@ -219,7 +219,8 @@ It turns out that node.js [`cluster`](http://nodejs.org/api/cluster.html) is at 
   * Seamless recovery from an errors, as long as at least one worker is always alive.
   * Helps better take advantage of one machine's multiple cores
 * Cons:
-  * In node `0.10` and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. [On linux and solaris, you probably shouldn't have more than two or three workers. In `0.12` this changed to round-robin](http://strongloop.com/strongblog/whats-new-in-node-js-v0-12-cluster-round-robin-load-balancing/)
+  * In node `0.10` and earlier, load balancing across workers is handled by the OS, and is a little bit uneven. On linux and solaris, you probably shouldn't have more than two or three workers.
+  * In node `0.12` and io.js the default load balancing approach changed to round-robin.
   * Unliked nginx, haproxy and other full-scale load-balancers, you don't have any customizability.
 
 
