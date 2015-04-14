@@ -1,3 +1,7 @@
+## 0.4.0 (2015-04-14)
+
+* New: increment `statsd` on start of master/worker processes
+
 ## 0.3.1 (2015-03-22)
 
 * Small tweak to `Graceful._finalLog` - instead of relying on `winston` callback or a `setTimeout(fn, 250)` to ensure that the final log entry hits the disk, we just do a `setTimeout(fn, 0)` to give it a chance. And the tests no longer check for that last entry, because it's not reliable. May introduce a feature in the future where the process is allowed to die naturally, since we've already stopped the server, etc. This would require that we and the overall client program `unref()` all timers.
