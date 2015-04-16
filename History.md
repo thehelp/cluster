@@ -1,3 +1,7 @@
+## 0.4.1 (2015-04-16)
+
+* Fix: `node-statsd` dependency added to production dependencies
+
 ## 0.4.0 (2015-04-14)
 
 * New: increment `statsd` on start of master/worker processes
