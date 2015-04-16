@@ -43,7 +43,7 @@ npm install thehelp-project --save-dev
 
 Even a single process could benefit from graceful shutdown, and it's really easy to set that up:
 
-```
+```javascript
 var cluster = require('thehelp-cluster');
 cluster.Graceful.start();
 
@@ -51,8 +51,20 @@ process.on('uncaughtException', function(err) {
   // Graceful uses thehelp-last-ditch to capture error information, then shuts down
   cluster.Graceful.instance.shutdown(err);
 });
-```
 
+var app = require('express')();
+
+// GracefulExpress ensures all outstanding requests complete before shutdown
+var gracefulExpress = new cluster.GracefulExpress();
+
+// it wraps all incoming requests in a domain
+app.use(gracefulExpress.middleware);
+
+// this makes it easier to get the underling node.js http server
+gracefulExpress.listen(app, 3000, function() {
+  console.log('Server listening on port 3000');
+});
+```
 
 # Usage: Clustered
 
