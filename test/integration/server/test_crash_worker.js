@@ -11,10 +11,12 @@ describe('top-level crash in worker', function() {
   var agent, child;
 
   before(function(done) {
+    this.timeout(5000);
+
     agent = supertest.agent('http://localhost:3000');
 
     child = util.startProcess(path.join(__dirname, '../../scenarios/crash_worker.js'));
-    setTimeout(done, 1000);
+    setTimeout(done, 2000);
   });
 
   it('logs out top-level exception, calls last-ditch, graceful shutdown', function(done) {

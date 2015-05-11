@@ -17,10 +17,13 @@ describe('socket.io, custom add/remove active socket', function() {
   var shutdown, news, disconnect;
 
   before(function(done) {
+    this.timeout(5000);
+
     agent = supertest.agent('http://localhost:3000');
 
     child = util.startProcess(path.join(__dirname, '../../scenarios/socket.io.js'));
-    setTimeout(done, 1000);
+
+    setTimeout(done, 2000);
   });
 
   it('is running', function(done) {

@@ -18,6 +18,8 @@ describe('keepalive sockets not closed', function() {
   var agent, child, pool;
 
   before(function(done) {
+    this.timeout(5000);
+
     pool = new http.Agent({
       keepAlive: true
     });
@@ -27,7 +29,7 @@ describe('keepalive sockets not closed', function() {
     child = util.startProcess(
       path.join(__dirname, '../../scenarios/no_close_sockets.js'));
 
-    setTimeout(done, 1000);
+    setTimeout(done, 2000);
   });
 
   it('root returns', function(done) {
