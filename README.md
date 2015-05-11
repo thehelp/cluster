@@ -4,6 +4,9 @@
 
 Don't just let your server crash on an unhandled error, finish everything you were doing first. Multiple techniques used to ensure your clients don't get socket hang-ups. Cluster support and graceful shutdown on SIGTERM too!
 
+## Note: node 0.12.x currently unsupported
+
+As of May 11, 2015: Because this project uses [`node-statsd`](https://github.com/sivy/node-statsd) to send statistics to [`statsd`](https://github.com/etsy/statsd), [node 0.12 will cause crashes in master](https://github.com/joyent/node/issues/9261). This does NOT happen in io.js, where [this commit](https://github.com/iojs/io.js/commit/65b1e4f56f1f49dccd19b65dee2856df05b06c89) was first part of v1.1.0. Those [changes are currently only in joyent/node/master](https://github.com/joyent/node/commit/e42c4a38fddd3b44d3155cd39a0f2dd5ac11d030).
 
 ## Features
 
@@ -11,8 +14,7 @@ Don't just let your server crash on an unhandled error, finish everything you we
   + Install [`domain`](http://nodejs.org/api/domain.html)-based capture of unhandled errors for every request, ensuring that the client always gets an error message
   + Shut down [`express`](http://expressjs.com/) servers gracefully: stop accepting new connections, close keepalive connections, and return 503 if any requests leak through
   + `inProcessTest` mode for [`supertest`](https://github.com/tj/supertest)-based in-process endpoint testing
-  + Tested on `express` `3.x` and `4.x` and with `node` `0.10.30-36` and `iojs` `1.4.3`, `1.5.1` and `1.6.0` (note: [tests no longer run on node 0.10 or below](https://github.com/thehelp/cluster/commit/9991818401f1d4f1867b54a107dcb3859240e20e)]
-  + Tested with `siege`, `ab` and various browsers - no socket hang-ups, no 503s even amidst regular worker crashes
+  + Tested on `express` `3.x` and `4.x` and with `node` `0.10.30-36` and `iojs` `1.4.3`, `1.5.1` and `1.6.0` (note: [tests no longer run on node 0.10 or below](https://github.com/thehelp/cluster/commit/9991818401f1d4f1867b54a107dcb3859240e20e))
 + `Master` class to:
   + Start up user-provided set of worker processes via [`cluster`](http://nodejs.org/api/domain.html)
   + Detect if worker processes crash too fast, then start replacements up after a delay
