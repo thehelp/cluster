@@ -1,8 +1,11 @@
 language: node_js
 node_js:
   - "0.12"
-  - "iojs-v1.5.1"
-  - "iojs-v1.6.1"
+  - "iojs-v1.8.4"
+  - "iojs-v2.5.0"
+  - "iojs-v3.3.1"
+  - "5.11.0"
+  - "4.4.3"
 install:
   - npm install
   - npm install -g grunt-cli
